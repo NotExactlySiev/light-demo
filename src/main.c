@@ -1,11 +1,21 @@
 #include <registers.h>
 #include <gpucmd.h>
+//#include "math.h"
+#include "model.h"
+
+#define SCREEN_W 256
+#define SCREEN_H 240
 
 // TODO: what do I do with this?
 void printf(const char *, ...);
 
-#define SCREEN_W 256
-#define SCREEN_H 240
+#define EMBED_BIN(s) \
+    extern uint8_t _binary_bin_##s##_start[]; \
+    extern uint32_t _binary_bin_##s##_size[];
+
+#define EMBED_MODEL(s)    EMBED_BIN(s##_ply)
+
+EMBED_MODEL(model)
 
 int _start()
 {
@@ -28,6 +38,21 @@ int _start()
     GPU_GP0 = gp0_xy(-40, 40);
     GPU_GP0 = gp0_rgb(0, 0, 255);
     GPU_GP0 = gp0_xy(40, 40);
-    
+
+    Model m;
+    void *data = model_new_ply(&m, _binary_bin_model_ply_start);
+
+    // allocate the space
+    Vec verts[m.nverts];
+    Vec normals[m.nverts];
+    uint16_t faces[m.nfaces][3];
+    m.verts = verts;
+    m.normals = normals;
+    m.faces = faces;
+
+    int rc = model_read_data(&m, data);
+
+    draw_model(pb, &ball, ball_mat);
+    printf("%d\n", rc);
     for (;;);
 }

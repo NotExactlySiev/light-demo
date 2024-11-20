@@ -23,7 +23,9 @@
 sysc 1, EnterCriticalSection
 sysc 2, ExitCriticalSection
 
-kern 0xA0, 0x24, strstr
+#kern 0xA0, 0x0D, strtol # the libc one is too big
+kern 0xA0, 0x10, atoi   # the libc one is too big
+kern 0xA0, 0x24, strstr   # the libc one doesn't work?
 kern 0xA0, 0x3E, puts
 kern 0xA0, 0x3F, printf
 kern 0xB0, 0x04, enable_timer_irq
