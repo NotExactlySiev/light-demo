@@ -1,6 +1,8 @@
 #include <stdint.h>
 #include <gte.h>
 
+//#define NO_GTE
+
 #define PREC     (12)
 #define ONE      (1 << PREC)
 
@@ -10,8 +12,11 @@ typedef struct {
     int16_t v;  // don't directly access
 } fx;
 
-typedef struct {
-    fx x, y, z;
+typedef union {
+    struct {
+        fx x, y, z;
+    };
+    GTEVector16 gte; 
 } Vec;
 
 typedef struct {
@@ -22,16 +27,22 @@ typedef struct {
     float x, y, z;
 } Vecf;
 
+// TODO: transform
 // has the correct bit representation for GTE. can type pun to GTEMatrix
-typedef struct {
-    fx m[3][3];
-    fx _pad;
+typedef union {
+    //struct {
+        fx m[3][3];
+        //fx _pad;
+    //};
+    GTEMatrix gte;
+    Vec v[3];
 } Mat;
 
 
 float qtof(int);
 int ftoq(float);
 
+fx FX(int16_t);
 fx ftofx(float v);
 float fxtof(fx v);
 fx itofx(int i);
@@ -44,5 +55,14 @@ Vec vec_add(Vec a, Vec b);
 Vec vec_sub(Vec a, Vec b);
 Vec vec_scale(Vec v, fx s);
 fx vec_dot(Vec a, Vec b);
+Veci vec_toi(Vec);
 GTEVector16 vec_gte(Vec v);
+Mat mat_id(void);
+Mat mat_rotate_x(fx);
+Mat mat_rotate_y(fx);
+Mat mat_rotate_z(fx);
+
+void transform_vecs(Vec *out, Vec *in, unsigned int n, Mat m);
+
+void mat_print(Mat);
 

@@ -14,11 +14,11 @@ LIBS	:=
 INCDIRS	+= -Ispicy
 
 # Required flags
-CCFLAGS	:= -Wall -mips1 -march=r3000 -mno-abicalls -static -fno-builtin
+CCFLAGS	:= -Wall -mips1 -march=r3000 -mno-abicalls -static -fno-builtin -nostartfiles -msoft-float
 LDFLAGS := -T ps-exe.ld -Wl,--oformat=elf32-littlemips
 
 # User Flags
-CCFLAGS	+= -g -O0 -flto -G0
+CCFLAGS	+= -g -O0 -G0
 LDFLAGS += -Wl,-Map=build/$(NAME).map
 
 BUILD	:= build

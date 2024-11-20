@@ -244,10 +244,10 @@ typedef enum {
 	GTE_LZCR = 31  // Leading zero count output
 } GTEDataRegister;
 
-DEF gte_setDataReg(GTEDataRegister reg, uint32_t value) {
+DEF gte_setDataReg(const GTEDataRegister reg, uint32_t value) {
 	__asm__ volatile("mtc2 %0, $%1\n" :: "r"(value), "i"(reg));
 }
-DEF32 gte_getDataReg(GTEDataRegister reg) {
+DEF32 gte_getDataReg(const GTEDataRegister reg) {
 	uint32_t value;
 
 	__asm__ volatile("mfc2 %0, $%1\n" : "=r"(value) : "i"(reg));

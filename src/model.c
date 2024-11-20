@@ -2,6 +2,13 @@
 #include "model.h"
 
 //int ftoq(float);
+
+/*
+typedef struct {
+    float x,y,z;
+} Vecf;
+*/
+
 Vec vecf_ftoq(Vecf v)
 {
     return (Vec) {
@@ -46,11 +53,6 @@ void *model_new_ply(Model *m, void *data)
     printf("%d\n", m->nfaces);
 
     return data_ptr;
-}
-
-void vec_print(Vec v)
-{
-    printf("%d\t%d\t%d\n", v.x.v, v.y.v, v.z.v);
 }
 
 // give it the pointer returned from the one above

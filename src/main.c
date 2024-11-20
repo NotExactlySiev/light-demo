@@ -1,4 +1,5 @@
 #include <registers.h>
+#include <cop0.h>
 #include <gpucmd.h>
 //#include "math.h"
 #include "gpu.h"
@@ -20,6 +21,21 @@ EMBED_MODEL(model)
 
 // TODO: models init function with X() macro
 
+void draw_line(PrimBuf *pb, Veci a, Veci b, uint32_t color)
+{
+    uint32_t *prim = next_prim(pb, 3, 1);
+    prim[0] = color | gp0_line(false, false);
+    prim[1] = gp0_xy(a.x, a.y);
+    prim[2] = gp0_xy(b.x, b.y);
+}
+
+void draw_point(PrimBuf *pb, Veci pt, uint32_t color)
+{
+    uint32_t *prim = next_prim(pb, 2, 1);
+    prim[0] = color | gp0_rectangle1x1(false, true, false);
+    prim[1] = gp0_xy(pt.x, pt.y);
+}
+
 void draw_model(PrimBuf *pb, Model *m, Mat mat)
 {
     //draw_vector(pb, (Vec3) { ONE/16, 0, 0 }, (Vec3) { ONE/32, 0, 0 });
@@ -28,10 +44,23 @@ void draw_model(PrimBuf *pb, Model *m, Mat mat)
 /*
     update_llm(&l, 1, mat, pb);
     Mat mvp = mat_multiply(projection, mat);
-    Vec3 proj[m->nverts];
-    transform_ortho(proj, m->verts, m->nverts, &mvp);
+*/
+    Vec proj[m->nverts];
+    //transform_ortho(proj, m->verts, m->nverts, &mvp);
+    transform_vecs(proj, m->verts, m->nverts, mat);
+
+    for (int i = 0; i < m->nverts; i++) {
+        Vec v = proj[i];
+        Veci v0 = { v.x.v, v.y.v, v.z.v };
+        draw_point(pb, v0, 255);
+    }
+
+/*
     for (int i = 0; i < m->nfaces; i++) {
         uint16_t *face = (*m->faces)[i];
+        Veci v0 = vec_toi(vec_scale(m->verts[face[0]], (fx) { 8*ONE }));
+        Veci v1 = vec_toi(m->verts[face[1]]);
+        Veci v2 = vec_toi(m->verts[face[2]]);
         Vec3 v0 = proj[face[0]];
         Vec3 v1 = proj[face[1]];
         Vec3 v2 = proj[face[2]];
@@ -51,25 +80,17 @@ void draw_model(PrimBuf *pb, Model *m, Mat mat)
 */
 }
 
-void draw_line(PrimBuf *pb, Veci a, Veci b, uint32_t color)
-{
-    uint32_t *prim = next_prim(pb, 3, 1);
-    prim[0] = color | gp0_line(false, false);
-    prim[1] = gp0_xy(a.x, a.y);
-    prim[2] = gp0_xy(b.x, b.y);
-}
-
-void draw_point(PrimBuf *pb, Veci pt, uint32_t color)
-{
-    uint32_t *prim = next_prim(pb, 2, 1);
-    prim[0] = color | gp0_rectangle1x1(false, true, false);
-    prim[1] = gp0_xy(pt.x, pt.y);
+static void gte_init(void) {
+    uint32_t sr = cop0_getReg(COP0_SR);
+    cop0_setReg(COP0_SR, sr | COP0_SR_CU2);
+    //gte_setControlReg(GTE_H, SCREEN_W/2);
 }
 
 int _start()
 {
-    printf("Hi!\n");
+    gte_init();
 
+    // TODO: move these to gpu_init
     GPU_GP1 = gp1_resetGPU();
     GPU_GP1 = gp1_dmaRequestMode(GP1_DREQ_GP0_WRITE);
     GPU_GP1 = gp1_dispBlank(false);
@@ -92,6 +113,7 @@ int _start()
     void *data = model_new_ply(&m, _binary_bin_model_ply_start);
 
     // allocate the space
+    // TODO: allocate in an arena
     Vec verts[m.nverts];
     Vec normals[m.nverts];
     uint16_t faces[m.nfaces][3];
@@ -101,13 +123,18 @@ int _start()
 
     int rc = model_read_data(&m, data);
 
+    Vec v = { ftofx(1.0f), ftofx(0.0f) };
+    Mat mat = mat_id();
+    mat = mat_rotate_x(ftofx(0.15));
+    mat_print(mat);
+
+    fx angle = { 0 };
     PrimBuf *pb = gpu_init();
     for (;;) {
-        printf("Frame %d\n", frame);        
-        //draw_model(pb, &m, NULL);
+        printf("Frame %d\n", frame);
+        Mat mat = mat_rotate_z(angle);
+        angle = fx_add(angle, FX(1));
+        draw_model(pb, &m, mat);
         pb = swap_buffer();
     }
-
-    printf("%d\n", rc);
-    for (;;);
 }
