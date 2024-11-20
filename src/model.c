@@ -2,11 +2,6 @@
 #include "model.h"
 
 //int ftoq(float);
-
-typedef struct {
-    float x,y,z;
-} Vecf;
-
 Vec vecf_ftoq(Vecf v)
 {
     return (Vec) {

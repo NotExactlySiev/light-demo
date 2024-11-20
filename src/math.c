@@ -90,3 +90,8 @@ GTEVector16 vec_gte(Vec v)
 {
     return (GTEVector16) { v.x.v, v.y.v, v.z.v };
 }
+
+GTEMatrix *mat_gte(Mat *m)
+{
+    return (GTEMatrix *) m;
+}

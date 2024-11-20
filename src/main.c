@@ -1,6 +1,7 @@
 #include <registers.h>
 #include <gpucmd.h>
 //#include "math.h"
+#include "gpu.h"
 #include "model.h"
 
 #define SCREEN_W 256
@@ -16,6 +17,54 @@ void printf(const char *, ...);
 #define EMBED_MODEL(s)    EMBED_BIN(s##_ply)
 
 EMBED_MODEL(model)
+
+// TODO: models init function with X() macro
+
+void draw_model(PrimBuf *pb, Model *m, Mat mat)
+{
+    //draw_vector(pb, (Vec3) { ONE/16, 0, 0 }, (Vec3) { ONE/32, 0, 0 });
+    // wait, if we're updating the light matrix per model anyway...
+
+/*
+    update_llm(&l, 1, mat, pb);
+    Mat mvp = mat_multiply(projection, mat);
+    Vec3 proj[m->nverts];
+    transform_ortho(proj, m->verts, m->nverts, &mvp);
+    for (int i = 0; i < m->nfaces; i++) {
+        uint16_t *face = (*m->faces)[i];
+        Vec3 v0 = proj[face[0]];
+        Vec3 v1 = proj[face[1]];
+        Vec3 v2 = proj[face[2]];
+        Vec3 n[3] = {
+            m->normals[face[0]],
+            m->normals[face[1]],
+            m->normals[face[2]],
+        };
+        uint32_t color[3] = {0};
+        normal_to_color(color, n);
+        draw_triangle(pb, v0, v1, v2,
+            color[0],
+            color[1],
+            color[2]
+        );
+    }
+*/
+}
+
+void draw_line(PrimBuf *pb, Veci a, Veci b, uint32_t color)
+{
+    uint32_t *prim = next_prim(pb, 3, 1);
+    prim[0] = color | gp0_line(false, false);
+    prim[1] = gp0_xy(a.x, a.y);
+    prim[2] = gp0_xy(b.x, b.y);
+}
+
+void draw_point(PrimBuf *pb, Veci pt, uint32_t color)
+{
+    uint32_t *prim = next_prim(pb, 2, 1);
+    prim[0] = color | gp0_rectangle1x1(false, true, false);
+    prim[1] = gp0_xy(pt.x, pt.y);
+}
 
 int _start()
 {
@@ -52,7 +101,13 @@ int _start()
 
     int rc = model_read_data(&m, data);
 
-    draw_model(pb, &ball, ball_mat);
+    PrimBuf *pb = gpu_init();
+    for (;;) {
+        printf("Frame %d\n", frame);        
+        //draw_model(pb, &m, NULL);
+        pb = swap_buffer();
+    }
+
     printf("%d\n", rc);
     for (;;);
 }
