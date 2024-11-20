@@ -30,13 +30,15 @@ all: build/$(NAME).exe
 #	mkdir -p $(BUILD)
 .PHONY: all
 
-build/$(NAME).elf: src/main.c src/model.c src/gpu.c src/kernel.s src/math.c src/math.s $(BUILD)/model.elf
+SRCS	:= src/main.c src/model.c src/gpu.c src/kernel.s src/math.c src/math.s
+BINS	:= $(BUILD)/ball.elf $(BUILD)/cube.elf
+build/$(NAME).elf: $(SRCS) $(BINS)
 	$(CC) $(INCDIRS) $(CCFLAGS) $(LIBDIRS) $(LDFLAGS) -o $@ $^ $(LIBS)
 
 $(BUILD)/$(NAME).exe: $(BUILD)/$(NAME).elf
 	$(OBJCOPY) -O binary $^ $@
 
-$(BUILD)/model.elf: bin/model.ply
+$(BUILD)/%.elf: bin/%.ply
 	$(TGT)-objcopy -I binary -O elf32-littlemips $^ $@
 
 

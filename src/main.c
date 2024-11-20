@@ -18,6 +18,7 @@ void printf(const char *, ...);
 #define EMBED_MODEL(s)    EMBED_BIN(s##_ply)
 
 EMBED_MODEL(model)
+EMBED_MODEL(cube)
 
 // TODO: models init function with X() macro
 
@@ -65,6 +66,8 @@ void normal_to_color(uint32_t *out, Vec *n)
     // doing one light for now
 
     gte_setV0(n[0].x.v, n[0].y.v, n[0].z.v);
+    gte_setV1(n[1].x.v, n[1].y.v, n[1].z.v);
+    gte_setV2(n[2].x.v, n[2].y.v, n[2].z.v);
   //  gte_loadV0(&n[0]);
   //  gte_loadV1(&n[1]);
   //  gte_loadV2(&n[2]);
@@ -96,8 +99,8 @@ void update_llm(Light *lights, int n, Mat mat, PrimBuf *pb)
 */
     //Vec lv = vec_scale(vec3_normalize(lights[0].dir), lights[0].power);
     Vec lv = lights[0].dir;
-    //Vec llv = mat_vec_multiply(lv, mat);
-    Vec llv = lv;
+    Vec llv = mat_vec_multiply(lv, mat);
+    //Vec llv = lv;
 
     //draw_vector(pb, VEC3_ZERO, llv);
     //VPRINT(llv);
@@ -111,34 +114,40 @@ void update_llm(Light *lights, int n, Mat mat, PrimBuf *pb)
 }
 
 
-void draw_model(PrimBuf *pb, Model *m, Mat mat)
+void draw_model(PrimBuf *pb, Model *m, fx angle_y, Vec pos)//Mat mat, Mat rmat)
 {
+    // calculate the local matrix (and it's rotational inverse) right here.
     //draw_vector(pb, (Vec3) { ONE/16, 0, 0 }, (Vec3) { ONE/32, 0, 0 });
     // wait, if we're updating the light matrix per model anyway...
-gte_loadLightColorMatrix(&(GTEMatrix){
-            {{	0,	0,	0 },
-             {	600,	0,	0 },
-             {	0,	0,	0 }}
-        //          ^       ^       ^
-        //        Light1  Light2  Light3
-        });
+    gte_loadLightColorMatrix(&(GTEMatrix){
+        {{	0,	0,	0 },
+         {	600,	0,	0 },
+         {	0,	0,	0 }}
+    //          ^       ^       ^
+    //        Light1  Light2  Light3
+    });
 
-        gte_setControlReg(GTE_RBK, 0.1*ONE);
-        gte_setControlReg(GTE_GBK, 0.1*ONE);
-        gte_setControlReg(GTE_BBK, 0.2*ONE);
+    Mat mat = mat_rotate_y(angle_y);
+    mat.t = pos;
 
-Light l = {
-    .dir = { FX(-ONE), FX(ONE), 0 },
-    .power = 2.0*ONE,
-};
-    update_llm(&l, 1, mat, pb);
+    Mat rmat = mat_rotate_y(fx_neg(angle_y));
+
+    gte_setControlReg(GTE_RBK, 0.1*ONE);
+    gte_setControlReg(GTE_GBK, 0.1*ONE);
+    gte_setControlReg(GTE_BBK, 0.2*ONE);
+
+    Light l = {
+        .dir = { FX(-ONE), FX(-ONE), 0 },
+        .power = 2.0*ONE,
+    };
+    update_llm(&l, 1, rmat, pb);
     Mat mvp = mat_mul(projection, mat);
+
     Vec proj[m->nverts];
     //transform_ortho(proj, m->verts, m->nverts, &mvp);
     transform_vecs(proj, m->verts, m->nverts, mvp);
 
     for (int i = 0; i < m->nfaces; i++) {
-        //printf("%d\n", v.z.v + 400);
         uint16_t *face = (*m->faces)[i];
         Veci v0 = vec_raw(proj[face[0]]);
         Veci v1 = vec_raw(proj[face[1]]);
@@ -148,7 +157,7 @@ Light l = {
             m->normals[face[1]],
             m->normals[face[2]],
         };
-        uint32_t color[3] = { 255 };
+        uint32_t color[3] = { 255, 255, 255 };
         normal_to_color(color, n);
         draw_triangle(pb, v0, v1, v2,
             color[0],
@@ -188,7 +197,7 @@ int _start()
     GPU_GP0 = gp0_xy(40, 40);
 
     Model m;
-    void *data = model_new_ply(&m, _binary_bin_model_ply_start);
+    void *data = model_new_ply(&m, _binary_bin_cube_ply_start);
 
     // allocate the space
     // TODO: allocate in an arena
@@ -205,13 +214,16 @@ int _start()
         mat_scale(FX(ONE/6), FX(ONE/6), FX(ONE)),
         mat_rotate_x(FX(ONE/12))
     );
-    fx angle = { 0 };
+    fx angle = FX(0);
     PrimBuf *pb = gpu_init();
     for (;;) {
         printf("Frame %d\n", frame);
-        Mat mat = mat_rotate_y(angle);
-        angle = fx_add(angle, FX(1));
-        draw_model(pb, &m, mat);
+        angle = fx_add(angle, FX(3));
+        Vec pos = { FX(400), FX(0), FX(100) };
+        draw_model(pb, &m, angle, pos);
+
+        pos = (Vec) { FX(-300), FX(0), FX(-50) };
+        draw_model(pb, &m, angle, pos);
         pb = swap_buffer();
     }
 }

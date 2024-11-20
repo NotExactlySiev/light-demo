@@ -156,11 +156,11 @@ GTEVector16 *vec_gte(Vec *v)
 
 Vec mat_vec_mul(Mat m, Vec v)
 {
-    return (Vec) {
+    return vec_add((Vec) {
         .x = vec_dot(m.v[0], v),
         .y = vec_dot(m.v[1], v),
         .z = vec_dot(m.v[2], v),
-    };
+    }, m.t);
 }
 
 
@@ -254,22 +254,28 @@ Vec mat_vec_multiply(Vec v, Mat m)
 // return AB, that is, A happens after B
 Mat mat_mul(Mat a, Mat b)
 {
-    Mat t = mat_transpose(b);
-    return (Mat) { .v = {
-        mat_vec_multiply(a.v[0], t),
-        mat_vec_multiply(a.v[1], t),
-        mat_vec_multiply(a.v[2], t),
-    }};
+    Mat bt = mat_transpose(b);
+    //return (Mat) {
+    Mat ret = {
+       .v = {
+           mat_vec_multiply(a.v[0], bt),
+           mat_vec_multiply(a.v[1], bt),
+           mat_vec_multiply(a.v[2], bt),
+       },
+
+       // can't do this for some reason :/ 
+       //.t = vec_add(a.t, mat_vec_multiply(b.t, a));
+    };
+    ret.t = vec_add(a.t, mat_vec_multiply(b.t, a));
+    return ret;
 }
 
 static void gte_load_matrix(Mat m)
 {
     gte_loadRotationMatrix(&m.gte);
-/*
-    gte_setControlReg(GTE_TRX, m->t.x);
-    gte_setControlReg(GTE_TRY, m->t.y);
-    gte_setControlReg(GTE_TRZ, m->t.z);
-*/
+    gte_setControlReg(GTE_TRX, m.t.x.v);
+    gte_setControlReg(GTE_TRY, m.t.y.v);
+    gte_setControlReg(GTE_TRZ, m.t.z.v);
 }
 
 void transform_vecs(Vec *out, Vec *in, unsigned int n, Mat m)
@@ -324,5 +330,6 @@ void mat_print(Mat m)
     vec_print(m.v[0]);
     vec_print(m.v[1]);
     vec_print(m.v[2]);
+    vec_print(m.t);
     printf("\n");
 }

@@ -38,7 +38,7 @@ typedef union {
     };
     GTEMatrix gte;
     Vec v[3];
-} Mat;
+} __attribute__ ((packed)) Mat;
 
 
 float qtof(int);
@@ -53,6 +53,7 @@ fx fx_add(fx a, fx b);
 fx fx_sub(fx a, fx b);
 fx fx_mul(fx a, fx b);
 fx fx_div(fx a, fx b);
+fx fx_neg(fx v);
 Vec vec_add(Vec a, Vec b);
 Vec vec_sub(Vec a, Vec b);
 Vec vec_scale(Vec v, fx s);
@@ -66,6 +67,7 @@ Mat mat_rotate_x(fx);
 Mat mat_rotate_y(fx);
 Mat mat_rotate_z(fx);
 Mat mat_mul(Mat a, Mat b);
+Vec mat_vec_multiply(Vec, Mat);
 void transform_vecs(Vec *out, Vec *in, unsigned int n, Mat m);
 
 void mat_print(Mat);
