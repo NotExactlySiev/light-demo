@@ -18,7 +18,7 @@ CCFLAGS	:= -Wall -mips1 -march=r3000 -mno-abicalls -static -fno-builtin -nostart
 LDFLAGS := -T ps-exe.ld -Wl,--oformat=elf32-littlemips
 
 # User Flags
-CCFLAGS	+= -g -O0 -G0
+CCFLAGS	+= -g -O0 -flto -G0
 LDFLAGS += -Wl,-Map=build/$(NAME).map
 
 BUILD	:= build

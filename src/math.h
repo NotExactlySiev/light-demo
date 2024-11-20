@@ -16,7 +16,8 @@ typedef union {
     struct {
         fx x, y, z;
     };
-    GTEVector16 gte; 
+    // The size is different... change the header?
+    //GTEVector16 gte; 
 } Vec;
 
 typedef struct {
@@ -30,10 +31,11 @@ typedef struct {
 // TODO: transform
 // has the correct bit representation for GTE. can type pun to GTEMatrix
 typedef union {
-    //struct {
+    struct {
         fx m[3][3];
-        //fx _pad;
-    //};
+        fx _pad;
+        Vec t;
+    };
     GTEMatrix gte;
     Vec v[3];
 } Mat;
@@ -56,12 +58,14 @@ Vec vec_sub(Vec a, Vec b);
 Vec vec_scale(Vec v, fx s);
 fx vec_dot(Vec a, Vec b);
 Veci vec_toi(Vec);
-GTEVector16 vec_gte(Vec v);
+Veci vec_raw(Vec);
+GTEVector16 *vec_gte(Vec *v);
 Mat mat_id(void);
+Mat mat_scale(fx x, fx y, fx z);
 Mat mat_rotate_x(fx);
 Mat mat_rotate_y(fx);
 Mat mat_rotate_z(fx);
-
+Mat mat_mul(Mat a, Mat b);
 void transform_vecs(Vec *out, Vec *in, unsigned int n, Mat m);
 
 void mat_print(Mat);

@@ -36,40 +36,119 @@ void draw_point(PrimBuf *pb, Veci pt, uint32_t color)
     prim[1] = gp0_xy(pt.x, pt.y);
 }
 
+void draw_triangle(PrimBuf *pb, Veci v0, Veci v1, Veci v2, uint32_t col0, uint32_t col1, uint32_t col2)
+{
+    int z = 0;
+    if (v0.z > z) z = v0.z;
+    if (v1.z > z) z = v1.z;
+    if (v2.z > z) z = v2.z;
+    // TODO: don't harcode this transform
+    z = (z + 400) / 32;
+    //int z = (v0.z + v1.z + v2.z) / 3;
+    uint32_t *prim = next_prim(pb, 6, z);
+    *prim++ = (col0 & 0xFFFFFF) | _gp0_polygon(false, false, true, false, false);
+    *prim++ = gp0_xy(v0.x, v0.y);
+    *prim++ = col1 & 0xFFFFFF;
+    *prim++ = gp0_xy(v1.x, v1.y);
+    *prim++ = col2 & 0xFFFFFF;
+    *prim++ = gp0_xy(v2.x, v2.y);
+}
+
+// TODO: move
+Mat projection;
+
+void normal_to_color(uint32_t *out, Vec *n)
+{
+    // TODO: do this once per vertex
+    // TODO: have the lights in a light structure. then read into
+    // gte matrix and transpose the colors
+    // doing one light for now
+
+    gte_setV0(n[0].x.v, n[0].y.v, n[0].z.v);
+  //  gte_loadV0(&n[0]);
+  //  gte_loadV1(&n[1]);
+  //  gte_loadV2(&n[2]);
+    gte_command(GTE_CMD_NCT | GTE_SF);
+
+    out[0] = 0xFFFFFF & gte_getDataReg(GTE_RGB0);
+    out[1] = 0xFFFFFF & gte_getDataReg(GTE_RGB1);
+    out[2] = 0xFFFFFF & gte_getDataReg(GTE_RGB2);
+}
+
+typedef struct {
+    Vec dir;  // will get normalized
+    fx power;
+    Vec color;
+} Light;
+
+// model matrix. should NOT scale
+void update_llm(Light *lights, int n, Mat mat, PrimBuf *pb)
+{
+    GTEMatrix llm = {0};
+/*
+    if (n < 3) {
+         // only updating some of the lights
+         // TODO
+
+    }
+    model.t = vec_zero();
+
+*/
+    //Vec lv = vec_scale(vec3_normalize(lights[0].dir), lights[0].power);
+    Vec lv = lights[0].dir;
+    //Vec llv = mat_vec_multiply(lv, mat);
+    Vec llv = lv;
+
+    //draw_vector(pb, VEC3_ZERO, llv);
+    //VPRINT(llv);
+    llm.values[0][0] = llv.x.v;
+    llm.values[0][1] = llv.y.v;
+    llm.values[0][2] = llv.z.v;
+
+    //llm = mat_multiply(llm, model);
+    // TODO: transform by model
+    gte_loadLightMatrix(&llm);
+}
+
+
 void draw_model(PrimBuf *pb, Model *m, Mat mat)
 {
     //draw_vector(pb, (Vec3) { ONE/16, 0, 0 }, (Vec3) { ONE/32, 0, 0 });
     // wait, if we're updating the light matrix per model anyway...
+gte_loadLightColorMatrix(&(GTEMatrix){
+            {{	0,	0,	0 },
+             {	600,	0,	0 },
+             {	0,	0,	0 }}
+        //          ^       ^       ^
+        //        Light1  Light2  Light3
+        });
 
-/*
+        gte_setControlReg(GTE_RBK, 0.1*ONE);
+        gte_setControlReg(GTE_GBK, 0.1*ONE);
+        gte_setControlReg(GTE_BBK, 0.2*ONE);
+
+Light l = {
+    .dir = { FX(-ONE), FX(ONE), 0 },
+    .power = 2.0*ONE,
+};
     update_llm(&l, 1, mat, pb);
-    Mat mvp = mat_multiply(projection, mat);
-*/
+    Mat mvp = mat_mul(projection, mat);
     Vec proj[m->nverts];
     //transform_ortho(proj, m->verts, m->nverts, &mvp);
-    transform_vecs(proj, m->verts, m->nverts, mat);
+    transform_vecs(proj, m->verts, m->nverts, mvp);
 
-    for (int i = 0; i < m->nverts; i++) {
-        Vec v = proj[i];
-        Veci v0 = { v.x.v, v.y.v, v.z.v };
-        draw_point(pb, v0, 255);
-    }
-
-/*
     for (int i = 0; i < m->nfaces; i++) {
+        //printf("%d\n", v.z.v + 400);
         uint16_t *face = (*m->faces)[i];
-        Veci v0 = vec_toi(vec_scale(m->verts[face[0]], (fx) { 8*ONE }));
-        Veci v1 = vec_toi(m->verts[face[1]]);
-        Veci v2 = vec_toi(m->verts[face[2]]);
-        Vec3 v0 = proj[face[0]];
-        Vec3 v1 = proj[face[1]];
-        Vec3 v2 = proj[face[2]];
-        Vec3 n[3] = {
+        Veci v0 = vec_raw(proj[face[0]]);
+        Veci v1 = vec_raw(proj[face[1]]);
+        Veci v2 = vec_raw(proj[face[2]]);
+        Vec n[3] = {
             m->normals[face[0]],
             m->normals[face[1]],
             m->normals[face[2]],
         };
-        uint32_t color[3] = {0};
+        uint32_t color[3] = { 255 };
         normal_to_color(color, n);
         draw_triangle(pb, v0, v1, v2,
             color[0],
@@ -77,7 +156,6 @@ void draw_model(PrimBuf *pb, Model *m, Mat mat)
             color[2]
         );
     }
-*/
 }
 
 static void gte_init(void) {
@@ -123,16 +201,15 @@ int _start()
 
     int rc = model_read_data(&m, data);
 
-    Vec v = { ftofx(1.0f), ftofx(0.0f) };
-    Mat mat = mat_id();
-    mat = mat_rotate_x(ftofx(0.15));
-    mat_print(mat);
-
+    projection = mat_mul(
+        mat_scale(FX(ONE/6), FX(ONE/6), FX(ONE)),
+        mat_rotate_x(FX(ONE/12))
+    );
     fx angle = { 0 };
     PrimBuf *pb = gpu_init();
     for (;;) {
         printf("Frame %d\n", frame);
-        Mat mat = mat_rotate_z(angle);
+        Mat mat = mat_rotate_y(angle);
         angle = fx_add(angle, FX(1));
         draw_model(pb, &m, mat);
         pb = swap_buffer();

@@ -148,9 +148,10 @@ fx vec_dot(Vec a, Vec b)
 }
 
 // TODO: make this a union too?
-GTEVector16 vec_gte(Vec v)
+GTEVector16 *vec_gte(Vec *v)
 {
-    return (GTEVector16) { v.x.v, v.y.v, v.z.v };
+    //return (GTEVector16) { v.x.v, v.y.v, v.z.v };
+    return (GTEVector16 *) v;
 }
 
 Vec mat_vec_mul(Mat m, Vec v)
@@ -172,22 +173,28 @@ Veci vec_toi(Vec v)
     };
 }
 
+// careful!
+Veci vec_raw(Vec v)
+{
+    return (Veci) { v.x.v, v.y.v, v.z.v };
+}
+
 Mat mat_id(void)
 {
-    return (Mat) {{
+    return (Mat) {{{
         { fx_one(), fx_zero(), fx_zero() },
         { fx_zero(), fx_one(), fx_zero() }, 
         { fx_zero(), fx_zero(), fx_one() },
-    }};
+    }}};
 }
 
 Mat mat_transpose(Mat m)
 {
-    return (Mat) {{
+    return (Mat) {{{
         { m.m[0][0], m.m[1][0], m.m[2][0] },
         { m.m[0][1], m.m[1][1], m.m[2][1] },
         { m.m[0][2], m.m[1][2], m.m[2][2] },
-    }};
+    }}};
 }
 
 Mat mat_rotate_x(fx angle)
@@ -195,11 +202,23 @@ Mat mat_rotate_x(fx angle)
     fx c = fx_cos(angle);
     fx s = fx_sin(angle);
 
-    return (Mat) {{
+    return (Mat) {{{
         { fx_one(),  fx_zero(), fx_zero() },
         { fx_zero(), c,         fx_neg(s) }, 
         { fx_zero(), s,         c         },
-    }};
+    }}};
+}
+
+Mat mat_rotate_y(fx angle)
+{
+    fx c = fx_cos(angle);
+    fx s = fx_sin(angle);
+
+    return (Mat) {{{
+        { c,         fx_zero(), s         }, 
+        { fx_zero(), fx_one(),  fx_zero() },
+        { fx_neg(s), fx_zero(), c         },
+    }}};
 }
 
 Mat mat_rotate_z(fx angle)
@@ -207,26 +226,21 @@ Mat mat_rotate_z(fx angle)
     fx c = fx_cos(angle);
     fx s = fx_sin(angle);
 
-    return (Mat) {{
+    return (Mat) {{{
         { c,         fx_neg(s), fx_zero() }, 
         { s,         c,         fx_zero() },
         { fx_zero(), fx_zero(), fx_one()  },
-    }};
+    }}};
 }
-/*
-Mat mat_mul(Mat a, Mat b)
-{
-    Mat t = mat_transponse(b);
-    vec_dot(a.v[0], t.v[0]);
-}
-*/
 
-/*
-GTEMatrix *mat_gte(Mat *m)
+Mat mat_scale(fx x, fx y, fx z)
 {
-    return (GTEMatrix *) m;
+    return (Mat) {{{
+        { x        , fx_zero(), fx_zero() },
+        { fx_zero(), y        , fx_zero() }, 
+        { fx_zero(), fx_zero(), z         },
+    }}};
 }
-*/
 
 Vec mat_vec_multiply(Vec v, Mat m)
 {
@@ -235,6 +249,17 @@ Vec mat_vec_multiply(Vec v, Mat m)
         .y = vec_dot(m.v[1], v),
         .z = vec_dot(m.v[2], v),
     };
+}
+
+// return AB, that is, A happens after B
+Mat mat_mul(Mat a, Mat b)
+{
+    Mat t = mat_transpose(b);
+    return (Mat) { .v = {
+        mat_vec_multiply(a.v[0], t),
+        mat_vec_multiply(a.v[1], t),
+        mat_vec_multiply(a.v[2], t),
+    }};
 }
 
 static void gte_load_matrix(Mat m)
@@ -256,12 +281,15 @@ void transform_vecs(Vec *out, Vec *in, unsigned int n, Mat m)
 #else
     gte_load_matrix(m);
     for (int i = 0; i < n; i++) {
-        gte_loadV0(&in[i].gte);
+        //gte_loadV0(vec_gte(&in[i]));
+        gte_setV0(in[i].x.v, in[i].y.v, in[i].z.v);
         gte_command(GTE_CMD_MVMVA | GTE_SF | GTE_MX_RT | GTE_V_V0 | GTE_CV_TR);
         // dunno if there's a better way to do this
-        gte_storeDataReg(GTE_IR1, 0, &out[i].gte);
-        out[i].gte.y = gte_getDataReg(GTE_IR2);
-        gte_storeDataReg(GTE_IR3, 4, &out[i].gte);
+        //gte_storeDataReg(GTE_IR1, 0, &out[i].gte);
+        out[i].x.v = gte_getDataReg(GTE_IR1);
+        out[i].y.v = gte_getDataReg(GTE_IR2);
+        out[i].z.v = gte_getDataReg(GTE_IR3);
+        //gte_storeDataReg(GTE_IR3, 4, &out[i].gte);
     }
 #endif
 }
