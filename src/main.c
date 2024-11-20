@@ -17,7 +17,7 @@ void printf(const char *, ...);
 
 #define EMBED_MODEL(s)    EMBED_BIN(s##_ply)
 
-EMBED_MODEL(model)
+EMBED_MODEL(ball)
 EMBED_MODEL(cube)
 
 // TODO: models init function with X() macro
@@ -120,8 +120,8 @@ void draw_model(PrimBuf *pb, Model *m, fx angle_y, Vec pos)//Mat mat, Mat rmat)
     //draw_vector(pb, (Vec3) { ONE/16, 0, 0 }, (Vec3) { ONE/32, 0, 0 });
     // wait, if we're updating the light matrix per model anyway...
     gte_loadLightColorMatrix(&(GTEMatrix){
-        {{	0,	0,	0 },
-         {	600,	0,	0 },
+        {{	0,	800,	0 },
+         {	700,	0,	0 },
          {	0,	0,	0 }}
     //          ^       ^       ^
     //        Light1  Light2  Light3
@@ -136,11 +136,18 @@ void draw_model(PrimBuf *pb, Model *m, fx angle_y, Vec pos)//Mat mat, Mat rmat)
     gte_setControlReg(GTE_GBK, 0.1*ONE);
     gte_setControlReg(GTE_BBK, 0.2*ONE);
 
-    Light l = {
-        .dir = { FX(-ONE), FX(-ONE), 0 },
-        .power = 2.0*ONE,
+    Light l[2] = {
+        {
+            .dir = { FX(-ONE), FX(-ONE), 0 },
+            .power = 2.0*ONE,
+        },
+
+        {
+            .dir = { FX(-ONE), FX(-ONE), 0 },
+            .power = 2.0*ONE,
+        },
     };
-    update_llm(&l, 1, rmat, pb);
+    update_llm(&l, 2, rmat, pb);
     Mat mvp = mat_mul(projection, mat);
 
     Vec proj[m->nverts];
@@ -173,6 +180,30 @@ static void gte_init(void) {
     //gte_setControlReg(GTE_H, SCREEN_W/2);
 }
 
+uint8_t *arena = (uint8_t *) 0x80100000;
+
+void *alloc(size_t amt)
+{
+    amt = (amt + 3) & ~3;
+    printf("allocating %ld\n", amt);
+    void *p = arena;
+    arena += amt;
+    return p;
+}
+
+Model *load_model(uint8_t *data)
+{
+    Model *m = alloc(sizeof(*m));
+    void *p = model_new_ply(m, data);
+
+    m->verts = alloc(sizeof(Vec) * m->nverts);
+    m->normals = alloc(sizeof(Vec) * m->nverts);
+    m->faces = alloc(sizeof(uint16_t) * m->nfaces * 3);
+
+    model_read_data(m, p);
+    return m;
+}
+
 int _start()
 {
     gte_init();
@@ -186,32 +217,13 @@ int _start()
     GPU_GP0 = gp0_fbOffset1(0, 0);
     GPU_GP0 = gp0_fbOffset2(1023, 511);
     GPU_GP0 = gp0_fbOrigin(SCREEN_W / 2, SCREEN_H / 2);
+    gpu_sync();
 
-    // TODO: probably sync here
-
-    GPU_GP0 = gp0_rgb(255, 0, 0) | _gp0_polygon(false, false, true, false, false);
-    GPU_GP0 = gp0_xy(0, -40);
-    GPU_GP0 = gp0_rgb(0, 255, 0);
-    GPU_GP0 = gp0_xy(-40, 40);
-    GPU_GP0 = gp0_rgb(0, 0, 255);
-    GPU_GP0 = gp0_xy(40, 40);
-
-    Model m;
-    void *data = model_new_ply(&m, _binary_bin_cube_ply_start);
-
-    // allocate the space
-    // TODO: allocate in an arena
-    Vec verts[m.nverts];
-    Vec normals[m.nverts];
-    uint16_t faces[m.nfaces][3];
-    m.verts = verts;
-    m.normals = normals;
-    m.faces = faces;
-
-    int rc = model_read_data(&m, data);
-
+    Model *cube = load_model(_binary_bin_cube_ply_start);
+    Model *ball = load_model(_binary_bin_ball_ply_start);
+   
     projection = mat_mul(
-        mat_scale(FX(ONE/6), FX(ONE/6), FX(ONE)),
+        mat_scale(FX(ONE/10), FX(ONE/10), FX(ONE)),
         mat_rotate_x(FX(ONE/12))
     );
     fx angle = FX(0);
@@ -219,11 +231,14 @@ int _start()
     for (;;) {
         printf("Frame %d\n", frame);
         angle = fx_add(angle, FX(3));
-        Vec pos = { FX(400), FX(0), FX(100) };
-        draw_model(pb, &m, angle, pos);
+        Vec pos = { FX(800), FX(0), FX(200) };
+        draw_model(pb, cube, angle, pos);
 
-        pos = (Vec) { FX(-300), FX(0), FX(-50) };
-        draw_model(pb, &m, angle, pos);
+        pos = (Vec) { FX(-600), FX(0), FX(-100) };
+        draw_model(pb, cube, fx_add(angle, FX(400)), pos);
+
+        pos = (Vec) { FX(0), FX(0), FX(-1000) };
+        draw_model(pb, ball, FX(0), pos);
         pb = swap_buffer();
     }
 }
