@@ -113,6 +113,29 @@ typedef struct {
     LightKind kind;
 } Light;
 
+// calculate light vectors for object
+void calculate_lights(Vec *out, Light *lights, int n, Vec pos)
+{
+    //Vec lv[3] = {0};
+    for (int i = 0; i < n; i++) {
+        Light *l = &lights[i];
+        if (l->kind == LIGHT_POINT) {
+            // mag2 should probably return int32
+            // this should be done at the object routine (it receives the lights that need updating for it)
+            // 32-bit calculation
+            // TODO: use proper fx32 types
+            Vec d = vec_sub(l->vec, pos);
+            int32_t factor = (l->power.v * ONE) / ((d.x.v * d.x.v + d.y.v * d.y.v + d.z.v * d.z.v) / ONE);
+            out[i] = vec_scale(d, FX(factor));
+        } else if (l->kind == LIGHT_SUN) {
+            // TODO: normalize and use power
+            out[i] = l->vec;
+            //lv[i] = vec_scale(vec_normalize_fake(lights[0].dir), lights[0].power);
+        } else {
+            out[i] = (Vec) {0};
+        }
+    }
+}
 // model matrix. should NOT scale
 void update_llm(Vec *lights, Mat mat)
 {
@@ -130,71 +153,19 @@ void update_llm(Vec *lights, Mat mat)
 }
 
 
-void draw_model(PrimBuf *pb, Model *m, fx angle_y, Vec pos)
+void draw_model(PrimBuf *pb, Model *m, fx angle_y, Vec pos, Light *lights)
 {
-    // calculate the local matrix (and it's rotational inverse) right here.
-    //draw_vector(pb, (Vec3) { ONE/16, 0, 0 }, (Vec3) { ONE/32, 0, 0 });
-    // wait, if we're updating the light matrix per model anyway...
-    gte_loadLightColorMatrix(&(GTEMatrix){
-        {{	1600,	0,	0 },
-         {	1600,	600,	0 },
-         {	1600,	0,	0 }}
-    //          ^       ^       ^
-    //        Light1  Light2  Light3
-    });
-
+    // calculate the local matrix (and it's rotational inverse) right here. 
     Mat mat = mat_rotate_y(angle_y);
     mat.t = pos;
-
     Mat rmat = mat_rotate_y(fx_neg(angle_y));
 
-    gte_setControlReg(GTE_RBK, 0.1*ONE);
-    gte_setControlReg(GTE_GBK, 0.1*ONE);
-    gte_setControlReg(GTE_BBK, 0.2*ONE);
-
-    // point light position
-
-    static fx t = {0};
-    t = fx_add(t, FX(13));
-    fx y = fx_mul(fx_sin(t), FX(ONE/3));
-    // this comes from outside
-    Light lights[3] = {
-        {
-            .kind = LIGHT_POINT,
-            .vec = { FX(0), y, FX(0) },
-            .power = FX(600),
-        },
-        {
-            .kind = LIGHT_SUN, 
-            .vec = { FX(ONE), FX(-ONE), 0 },
-            //.power = FX(ONE/8),
-        },
-        {
-            .kind = LIGHT_NONE,
-        },
-    };
-
+    // calculate the light matrix and the local light matrix 
     Vec lv[3] = {0};
-    for (int i = 0; i < 3; i++) {
-        Light *l = &lights[i];
-        if (l->kind == LIGHT_POINT) {
-            // mag2 should probably return int32
-            // this should be done at the object routine (it receives the lights that need updating for it)
-            // 32-bit calculation
-            // TODO: use proper fx32 types
-            Vec d = vec_sub(l->vec, pos);
-            int32_t factor = (l->power.v * ONE) / ((d.x.v * d.x.v + d.y.v * d.y.v + d.z.v * d.z.v) / ONE);
-            lv[i] = vec_scale(d, FX(factor));
-        } else if (l->kind == LIGHT_SUN) {
-            // TODO: normalize and use power
-            lv[i] = l->vec;
-            //lv[i] = vec_scale(vec_normalize_fake(lights[0].dir), lights[0].power);
-        }
-    }
-
+    calculate_lights(lv, lights, 3, pos);
     update_llm(lv, rmat);
-    Mat mvp = mat_mul(projection, mat);
 
+    Mat mvp = mat_mul(projection, mat);
     Vec proj[m->nverts];
     transform_vecs(proj, m->verts, m->nverts, mvp);
 
@@ -267,30 +238,63 @@ int _start()
     Model *ball  = load_model(_binary_bin_ball_ply_start, FX(ONE/13));
     Model *monke = load_model(_binary_bin_monke_ply_start, FX(ONE/12));
 
+    // we need multiple methods to only update parts of the light state in GTE
+    // TODO: read this from the light struct
+    gte_loadLightColorMatrix(&(GTEMatrix){
+        {{	1600,	0,	0 },
+         {	1600,	600,	0 },
+         {	1600,	0,	0 }}
+    //          ^       ^       ^
+    //        Light1  Light2  Light3
+    });
+
+    // I think this needs a per model factor and a per light factor
+    gte_setControlReg(GTE_RBK, 0.1*ONE);
+    gte_setControlReg(GTE_GBK, 0.1*ONE);
+    gte_setControlReg(GTE_BBK, 0.2*ONE);
+
     // orthographic for now. only scale to screen
     projection = mat_mul(mat_scale(FX(ONE/10), FX(ONE/10), FX(ONE)),
                  mat_mul(mat_rotate_x(FX(ONE/12)),
                          mat_rotate_y(FX(ONE/16))));
+
+    fx t = {0};
     fx angle = FX(0);
     PrimBuf *pb = gpu_init();
     for (;;) {
         printf("Frame %d\n", frame);
-        angle = fx_add(angle, FX(21));
 
-        Vec pos; 
+        fx y = fx_mul(fx_sin(t), FX(ONE/3));
+        Light lights[3] = {
+            {
+                .kind = LIGHT_POINT,
+                .vec = { FX(0), y, FX(0) },
+                .power = FX(600),
+            },
+            {
+                .kind = LIGHT_SUN, 
+                .vec = { FX(ONE), FX(-ONE), 0 },
+                //.power = FX(ONE/8),
+            },
+            {
+                .kind = LIGHT_NONE,
+            },
+        };
+
+        Vec pos;
         pos = (Vec) { FX(800), FX(0), FX(200) };
-        draw_model(pb, cube, angle, pos);
-
-        pos = (Vec) { FX(-700), FX(0), FX(-300) };
-        //draw_model(pb, cube, angle, pos);
+        draw_model(pb, cube, angle, pos, lights);
 
         pos = (Vec) { FX(-100), FX(0), FX(550) };
-        draw_model(pb, ball, FX(0), pos);
+        draw_model(pb, ball, FX(0), pos, lights);
 
         pos = (Vec) { FX(-800), FX(0), FX(-300) };
-        draw_model(pb, monke, fx_add(fx_mul(angle, FX(ONE/3)), FX(-ONE/8)), pos);
+        draw_model(pb, monke, fx_add(fx_mul(angle, FX(ONE/3)), FX(-ONE/8)), pos, lights);
 
         draw_axes(pb);
         pb = swap_buffer();
+
+        angle = fx_add(angle, FX(21));
+        t = fx_add(t, FX(30));
     }
 }
