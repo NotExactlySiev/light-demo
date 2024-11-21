@@ -27,6 +27,7 @@ Mat projection;
 
 void draw_line(PrimBuf *pb, Veci a, Veci b, uint32_t color)
 {
+    // TODO: actually sort
     uint32_t *prim = next_prim(pb, 3, 63);
     prim[0] = color | gp0_line(false, false);
     prim[1] = gp0_xy(a.x, a.y);
@@ -238,26 +239,24 @@ int _start()
     Model *ball = load_model(_binary_bin_ball_ply_start);
 
     // orthographic for now. only scale to screen
-    projection = mat_mul(
-        mat_scale(FX(ONE/10), FX(ONE/10), FX(ONE)),
-        mat_rotate_x(FX(ONE/12))
-    );
+    projection = mat_mul(mat_scale(FX(ONE/10), FX(ONE/10), FX(ONE)),
+                 mat_mul(mat_rotate_x(FX(ONE/12)),
+                         mat_rotate_y(FX(ONE/16))));
     fx angle = FX(0);
     PrimBuf *pb = gpu_init();
     for (;;) {
         printf("Frame %d\n", frame);
-        angle = fx_add(angle, FX(3));
+        angle = fx_add(angle, FX(21));
 
-        Vec pos = { FX(800), FX(0), FX(200) };
+        Vec pos; 
+
+        pos = (Vec) { FX(800), FX(0), FX(200) };
+        draw_model(pb, cube, FX(100), pos);
+
+        pos = (Vec) { FX(-700), FX(0), FX(-300) };
         draw_model(pb, cube, angle, pos);
 
-        pos = (Vec) { FX(0), FX(0), FX(0) };
-        draw_model(pb, cube, angle, pos);
-
-        pos = (Vec) { FX(-600), FX(0), FX(-100) };
-        draw_model(pb, cube, fx_add(angle, FX(400)), pos);
-
-        pos = (Vec) { FX(0), FX(0), FX(-1000) };
+        pos = (Vec) { FX(-100), FX(0), FX(550) };
         draw_model(pb, ball, FX(0), pos);
         draw_axes(pb);
         pb = swap_buffer();

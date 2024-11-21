@@ -55,12 +55,13 @@ void *model_new_ply(Model *m, void *data)
     return data_ptr;
 }
 
+// TODO: we should be able to scale the model here (scale factor parameter)
 // give it the pointer returned from the one above
 int model_read_data(Model *m, void *data)
 {
     PlyVert *fverts = (PlyVert *) data;
     for (int i = 0; i < m->nverts; i++) {
-        m->verts[i] = vec_scale(vecf_ftoq(fverts[i].pos), (fx) { ONE/16 }); // BAD
+        m->verts[i] = vec_scale(vecf_ftoq(fverts[i].pos), FX(ONE/14)); // BAD
         m->normals[i] = vecf_ftoq(fverts[i].normal);
         vec_print(m->verts[i]);
     }
