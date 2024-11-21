@@ -18,7 +18,7 @@ CCFLAGS	:= -Wall -mips1 -march=r3000 -mno-abicalls -static -fno-builtin -nostart
 LDFLAGS := -T ps-exe.ld -Wl,--oformat=elf32-littlemips
 
 # User Flags
-CCFLAGS	+= -g -O0 -flto -G0
+CCFLAGS	+= -g -O3 -flto -G0
 LDFLAGS += -Wl,-Map=build/$(NAME).map
 
 BUILD	:= build
@@ -31,7 +31,7 @@ all: build/$(NAME).exe
 .PHONY: all
 
 SRCS	:= src/main.c src/model.c src/gpu.c src/kernel.s src/math.c src/math.s
-BINS	:= $(BUILD)/ball.elf $(BUILD)/cube.elf
+BINS	:= $(BUILD)/ball.elf $(BUILD)/cube.elf $(BUILD)/monke.elf
 build/$(NAME).elf: $(SRCS) $(BINS)
 	$(CC) $(INCDIRS) $(CCFLAGS) $(LIBDIRS) $(LDFLAGS) -o $@ $^ $(LIBS)
 

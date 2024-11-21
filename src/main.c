@@ -19,6 +19,7 @@ void printf(const char *, ...);
 
 EMBED_MODEL(ball)
 EMBED_MODEL(cube)
+EMBED_MODEL(monke)
 
 // TODO: models init function with X() macro
 
@@ -99,42 +100,28 @@ void normal_to_color(uint32_t *out, Vec *n)
     out[2] = 0xFFFFFF & gte_getDataReg(GTE_RGB2);
 }
 
+typedef enum {
+    LIGHT_NONE,
+    LIGHT_SUN,
+    LIGHT_POINT,
+} LightKind;
+
 typedef struct {
-    Vec dir;  // will get normalized
-    fx power;
+    Vec vec;  // direction or position
     Vec color;
+    fx power;
+    LightKind kind;
 } Light;
 
 // model matrix. should NOT scale
-void update_llm(Light *lights, int n, Mat mat, PrimBuf *pb)
+void update_llm(Vec *lights, Mat mat)
 {
-/*
-    if (n < 3) {
-         // only updating some of the lights
-         // TODO
-
-    }
-    model.t = vec_zero();
-*/
-    //Vec lv = vec_scale(vec_normalize_fake(lights[0].dir), lights[0].power);
-    //Vec lv = vec_normalize_fake(lights[0].dir);
-    // mag2 should probably return int32
-    //fx factor = fx_div(lights[0].power, vec_mag2(lights[0].dir));
-    Vec d = lights[0].dir;
-    // this should be done at the object routine (it receives the lights that need updating for it)
-    // 32-bit calculation
-    int32_t factor = (lights[0].power.v * ONE) / ((d.x.v * d.x.v + d.y.v * d.y.v + d.z.v * d.z.v) / ONE);
-
-
-/*
-    printf("factor is: %X\n", factor);
-    fx_print(FX(factor));
-    printf("\n");
-*/
     Mat lm = {
-        .v = { vec_scale(d, FX(factor)) },
+        .v = { lights[0], lights[1], lights[2] }
     };
 
+    // only use the rotation (shouldn't scale either)
+    mat.t = (Vec) {0};
     // this is functionally the same as this:
     // Mat llm = mat_transpose(mat_mul(mat, mat_transpose(lm)));
     // because (AB^)^ == BA^
@@ -143,15 +130,15 @@ void update_llm(Light *lights, int n, Mat mat, PrimBuf *pb)
 }
 
 
-void draw_model(PrimBuf *pb, Model *m, fx angle_y, Vec pos)//Mat mat, Mat rmat)
+void draw_model(PrimBuf *pb, Model *m, fx angle_y, Vec pos)
 {
     // calculate the local matrix (and it's rotational inverse) right here.
     //draw_vector(pb, (Vec3) { ONE/16, 0, 0 }, (Vec3) { ONE/32, 0, 0 });
     // wait, if we're updating the light matrix per model anyway...
     gte_loadLightColorMatrix(&(GTEMatrix){
-        {{	ONE,	800,	0 },
-         {	ONE,	0,	0 },
-         {	0,	0,	0 }}
+        {{	1600,	0,	0 },
+         {	1600,	600,	0 },
+         {	1600,	0,	0 }}
     //          ^       ^       ^
     //        Light1  Light2  Light3
     });
@@ -167,29 +154,48 @@ void draw_model(PrimBuf *pb, Model *m, fx angle_y, Vec pos)//Mat mat, Mat rmat)
 
     // point light position
 
-    Light l[2] = {
+    static fx t = {0};
+    t = fx_add(t, FX(13));
+    fx y = fx_mul(fx_sin(t), FX(ONE/3));
+    // this comes from outside
+    Light lights[3] = {
         {
-            .dir = { FX(-ONE), FX(-ONE), 0 },
-            .power = FX(400),
+            .kind = LIGHT_POINT,
+            .vec = { FX(0), y, FX(0) },
+            .power = FX(600),
         },
-
         {
-            //.dir = { FX(ONE), FX(-ONE), 0 },
-            .power = FX(ONE/8),
+            .kind = LIGHT_SUN, 
+            .vec = { FX(ONE), FX(-ONE), 0 },
+            //.power = FX(ONE/8),
+        },
+        {
+            .kind = LIGHT_NONE,
         },
     };
 
-    static fx t = {0};
-    t = fx_add(t, FX(20));
-    fx y = fx_mul(fx_sin(t), FX(ONE/2));
-    Vec point = { FX(0), y, FX(0) }; 
-    l[0].dir = vec_sub(point, pos);
+    Vec lv[3] = {0};
+    for (int i = 0; i < 3; i++) {
+        Light *l = &lights[i];
+        if (l->kind == LIGHT_POINT) {
+            // mag2 should probably return int32
+            // this should be done at the object routine (it receives the lights that need updating for it)
+            // 32-bit calculation
+            // TODO: use proper fx32 types
+            Vec d = vec_sub(l->vec, pos);
+            int32_t factor = (l->power.v * ONE) / ((d.x.v * d.x.v + d.y.v * d.y.v + d.z.v * d.z.v) / ONE);
+            lv[i] = vec_scale(d, FX(factor));
+        } else if (l->kind == LIGHT_SUN) {
+            // TODO: normalize and use power
+            lv[i] = l->vec;
+            //lv[i] = vec_scale(vec_normalize_fake(lights[0].dir), lights[0].power);
+        }
+    }
 
-    update_llm(&l, 1, rmat, pb);
+    update_llm(lv, rmat);
     Mat mvp = mat_mul(projection, mat);
 
     Vec proj[m->nverts];
-    //transform_ortho(proj, m->verts, m->nverts, &mvp);
     transform_vecs(proj, m->verts, m->nverts, mvp);
 
     for (int i = 0; i < m->nfaces; i++) {
@@ -257,8 +263,9 @@ int _start()
     GPU_GP0 = gp0_fbOrigin(SCREEN_W / 2, SCREEN_H / 2);
     gpu_sync();
 
-    Model *cube = load_model(_binary_bin_cube_ply_start);
-    Model *ball = load_model(_binary_bin_ball_ply_start);
+    Model *cube  = load_model(_binary_bin_cube_ply_start);
+    Model *ball  = load_model(_binary_bin_ball_ply_start);
+    Model *monke = load_model(_binary_bin_monke_ply_start);
 
     // orthographic for now. only scale to screen
     projection = mat_mul(mat_scale(FX(ONE/10), FX(ONE/10), FX(ONE)),
@@ -271,15 +278,18 @@ int _start()
         angle = fx_add(angle, FX(21));
 
         Vec pos; 
-
         pos = (Vec) { FX(800), FX(0), FX(200) };
-        draw_model(pb, cube, FX(100), pos);
+        draw_model(pb, cube, angle, pos);
 
         pos = (Vec) { FX(-700), FX(0), FX(-300) };
-        draw_model(pb, cube, angle, pos);
+        //draw_model(pb, cube, angle, pos);
 
         pos = (Vec) { FX(-100), FX(0), FX(550) };
         draw_model(pb, ball, FX(0), pos);
+
+        pos = (Vec) { FX(-800), FX(0), FX(-300) };
+        draw_model(pb, monke, fx_add(fx_mul(angle, FX(ONE/3)), FX(-ONE/8)), pos);
+
         draw_axes(pb);
         pb = swap_buffer();
     }
