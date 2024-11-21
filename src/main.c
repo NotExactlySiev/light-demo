@@ -22,6 +22,9 @@ EMBED_MODEL(cube)
 
 // TODO: models init function with X() macro
 
+// TODO: move
+Mat projection;
+
 void draw_line(PrimBuf *pb, Veci a, Veci b, uint32_t color)
 {
     uint32_t *prim = next_prim(pb, 3, 1);
@@ -37,15 +40,37 @@ void draw_point(PrimBuf *pb, Veci pt, uint32_t color)
     prim[1] = gp0_xy(pt.x, pt.y);
 }
 
+void draw_axes(PrimBuf *pb)
+{
+    Vec verts[4] = {
+        [1] = { FX(ONE/4),  FX(0),      FX(0)   },
+        { FX(0),    FX(ONE/4),    FX(0)   },
+        { FX(0),    FX(0),      FX(ONE/4) },
+    };
+
+    Vec proj[4];
+    Veci draw[4];
+
+    //if (!in_view(verts[0], &proj[0]))
+    //    return;
+
+    transform_vecs(&proj[0], verts, 4, projection);
+    for (int i = 0; i < 4; i++) {
+        draw[i] = vec_raw(proj[i]);
+    }
+    draw_line(pb, draw[0], draw[1], gp0_rgb(255, 0, 0));
+    draw_line(pb, draw[0], draw[2], gp0_rgb(0, 255, 0));
+    draw_line(pb, draw[0], draw[3], gp0_rgb(0, 0, 255));
+}
+
 void draw_triangle(PrimBuf *pb, Veci v0, Veci v1, Veci v2, uint32_t col0, uint32_t col1, uint32_t col2)
 {
-    int z = 0;
+    int z = INT16_MIN;
     if (v0.z > z) z = v0.z;
     if (v1.z > z) z = v1.z;
     if (v2.z > z) z = v2.z;
     // TODO: don't harcode this transform
-    z = (z + 400) / 32;
-    //int z = (v0.z + v1.z + v2.z) / 3;
+    z = (z + 2048) / 64;
     uint32_t *prim = next_prim(pb, 6, z);
     *prim++ = (col0 & 0xFFFFFF) | _gp0_polygon(false, false, true, false, false);
     *prim++ = gp0_xy(v0.x, v0.y);
@@ -55,11 +80,9 @@ void draw_triangle(PrimBuf *pb, Veci v0, Veci v1, Veci v2, uint32_t col0, uint32
     *prim++ = gp0_xy(v2.x, v2.y);
 }
 
-// TODO: move
-Mat projection;
-
 void normal_to_color(uint32_t *out, Vec *n)
 {
+    // TODO: NO_GTE mode
     // TODO: do this once per vertex
     // TODO: have the lights in a light structure. then read into
     // gte matrix and transpose the colors
@@ -68,11 +91,7 @@ void normal_to_color(uint32_t *out, Vec *n)
     gte_setV0(n[0].x.v, n[0].y.v, n[0].z.v);
     gte_setV1(n[1].x.v, n[1].y.v, n[1].z.v);
     gte_setV2(n[2].x.v, n[2].y.v, n[2].z.v);
-  //  gte_loadV0(&n[0]);
-  //  gte_loadV1(&n[1]);
-  //  gte_loadV2(&n[2]);
     gte_command(GTE_CMD_NCT | GTE_SF);
-
     out[0] = 0xFFFFFF & gte_getDataReg(GTE_RGB0);
     out[1] = 0xFFFFFF & gte_getDataReg(GTE_RGB1);
     out[2] = 0xFFFFFF & gte_getDataReg(GTE_RGB2);
@@ -95,15 +114,10 @@ void update_llm(Light *lights, int n, Mat mat, PrimBuf *pb)
 
     }
     model.t = vec_zero();
-
 */
     //Vec lv = vec_scale(vec3_normalize(lights[0].dir), lights[0].power);
     Vec lv = lights[0].dir;
     Vec llv = mat_vec_multiply(lv, mat);
-    //Vec llv = lv;
-
-    //draw_vector(pb, VEC3_ZERO, llv);
-    //VPRINT(llv);
     llm.values[0][0] = llv.x.v;
     llm.values[0][1] = llv.y.v;
     llm.values[0][2] = llv.z.v;
@@ -232,7 +246,11 @@ int _start()
     for (;;) {
         printf("Frame %d\n", frame);
         angle = fx_add(angle, FX(3));
+
         Vec pos = { FX(800), FX(0), FX(200) };
+        draw_model(pb, cube, angle, pos);
+
+        pos = (Vec) { FX(0), FX(0), FX(0) };
         draw_model(pb, cube, angle, pos);
 
         pos = (Vec) { FX(-600), FX(0), FX(-100) };
@@ -240,6 +258,7 @@ int _start()
 
         pos = (Vec) { FX(0), FX(0), FX(-1000) };
         draw_model(pb, ball, FX(0), pos);
+        draw_axes(pb);
         pb = swap_buffer();
     }
 }

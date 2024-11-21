@@ -1,15 +1,15 @@
 #include <stdint.h>
 #include <registers.h>
 #include <gpucmd.h>
-//#include "math.h"
-
 #include "gpu.h"
 
+// layers should be in the header
 #define PRIM_NLAYERS    64
+#define PRIM_SIZE       (1 << 14)
 
 struct PrimBuf {
-    uint32_t data[1 << 17];
-    uint32_t layers[PRIM_NLAYERS + 1];
+    uint32_t data[PRIM_SIZE];
+    uint32_t layers[PRIM_NLAYERS];
     uint32_t *next;
 };
 
@@ -61,7 +61,7 @@ void vsync_handler(void)
 static void clear_buffer(PrimBuf *pb)
 {
     pb->next = &pb->data[0];
-    for (int i = 1; i < PRIM_NLAYERS + 1; i++) {
+    for (int i = 1; i < PRIM_NLAYERS; i++) {
         pb->layers[i] = gp0_tag(0, &pb->layers[i-1]);
     }
     pb->layers[0] = gp0_endTag(0);
@@ -89,10 +89,20 @@ PrimBuf *gpu_init(void)
 // TODO: rename to gpu_alloc?
 uint32_t *next_prim(PrimBuf *pb, int len, int layer)
 {
+    if (layer > PRIM_NLAYERS-1) {
+        printf("layer clamped: %d\n", layer);
+        layer = PRIM_NLAYERS-1;
+    } else if (layer < 0) {
+        printf("layer clamped: %d\n", layer);
+        layer = 0;
+    }
     uint32_t *prim = pb->next;
     prim[0] = gp0_tag(len, (void*) pb->layers[layer]);
     pb->layers[layer] = gp0_tag(0, prim);
     pb->next += len + 1;
+    if (((uintptr_t) pb->next) >= ((uintptr_t) &pb->data[PRIM_SIZE])) {
+        printf("too many primitives!\n");
+    }
     return &prim[1];
 }
 
@@ -106,7 +116,7 @@ PrimBuf *swap_buffer(void)
     
     int bufferX = curr * SCREEN_W;
     int bufferY = 0;
-    prim = next_prim(pb, 4, PRIM_NLAYERS);
+    prim = next_prim(pb, 4, PRIM_NLAYERS-1);
     prim[0] = gp0_texpage(0, true, false);
 	prim[1] = gp0_fbOffset1(bufferX, bufferY);
 	prim[2] = gp0_fbOffset2(bufferX + SCREEN_W - 1, bufferY + SCREEN_H - 2);
@@ -115,20 +125,17 @@ PrimBuf *swap_buffer(void)
     gpu_sync();    
     while (last_rendered == frame)
         __asm__ volatile("");
-        ;
     last_rendered = frame;
-
-    send_prims(&primbufs[curr].layers[PRIM_NLAYERS]);
-    curr = 1 - curr;
-    pb = &primbufs[curr];
-    GPU_GP1 = gp1_fbOffset(curr * SCREEN_W, 0);
-    
-    clear_buffer(&primbufs[curr]);
-    prim = next_prim(pb, 3, 30);
+    // add the block fill last, right before dma, so it's drawn first
+    prim = next_prim(pb, 3, PRIM_NLAYERS-1);
     prim[0] = gp0_rgb(0, 0, 0) | gp0_vramFill();
     prim[1] = gp0_xy((curr) * SCREEN_W, 0);
     prim[2] = gp0_xy(SCREEN_W, SCREEN_H);
-
+    send_prims(pb->layers[PRIM_NLAYERS-1]);
+    curr = 1 - curr;
+    pb = &primbufs[curr];
+    GPU_GP1 = gp1_fbOffset(curr * SCREEN_W, 0); 
+    clear_buffer(&primbufs[curr]);
     return &primbufs[curr];
 }
 
