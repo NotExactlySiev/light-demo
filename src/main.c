@@ -235,7 +235,7 @@ void *alloc(size_t amt)
     return p;
 }
 
-Model *load_model(uint8_t *data)
+Model *load_model(uint8_t *data, fx scale)
 {
     Model *m = alloc(sizeof(*m));
     void *p = model_new_ply(m, data);
@@ -244,7 +244,7 @@ Model *load_model(uint8_t *data)
     m->normals = alloc(sizeof(Vec) * m->nverts);
     m->faces = alloc(sizeof(uint16_t) * m->nfaces * 3);
 
-    model_read_data(m, p);
+    model_read_data(m, p, scale);
     return m;
 }
 
@@ -263,9 +263,9 @@ int _start()
     GPU_GP0 = gp0_fbOrigin(SCREEN_W / 2, SCREEN_H / 2);
     gpu_sync();
 
-    Model *cube  = load_model(_binary_bin_cube_ply_start);
-    Model *ball  = load_model(_binary_bin_ball_ply_start);
-    Model *monke = load_model(_binary_bin_monke_ply_start);
+    Model *cube  = load_model(_binary_bin_cube_ply_start, FX(ONE/16));
+    Model *ball  = load_model(_binary_bin_ball_ply_start, FX(ONE/13));
+    Model *monke = load_model(_binary_bin_monke_ply_start, FX(ONE/12));
 
     // orthographic for now. only scale to screen
     projection = mat_mul(mat_scale(FX(ONE/10), FX(ONE/10), FX(ONE)),

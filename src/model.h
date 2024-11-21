@@ -8,5 +8,5 @@ typedef struct {
     uint16_t (*faces)[][3];
 } Model;
 
-void *model_new_ply(Model *, void *);
-int   model_read_data(Model *, void *);
+void *model_new_ply(Model *m, void *data);
+int   model_read_data(Model *m, void *data, fx scale);
