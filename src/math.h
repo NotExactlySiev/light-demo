@@ -65,6 +65,7 @@ Veci vec_raw(Vec);
 GTEVector16 *vec_gte(Vec *v);
 Mat mat_id(void);
 Mat mat_scale(fx x, fx y, fx z);
+Mat mat_transpose(Mat);
 Mat mat_rotate_x(fx);
 Mat mat_rotate_y(fx);
 Mat mat_rotate_z(fx);

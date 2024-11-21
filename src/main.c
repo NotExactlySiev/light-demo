@@ -106,7 +106,6 @@ typedef struct {
 // model matrix. should NOT scale
 void update_llm(Light *lights, int n, Mat mat, PrimBuf *pb)
 {
-    GTEMatrix llm = {0};
 /*
     if (n < 3) {
          // only updating some of the lights
@@ -116,15 +115,16 @@ void update_llm(Light *lights, int n, Mat mat, PrimBuf *pb)
     model.t = vec_zero();
 */
     //Vec lv = vec_scale(vec3_normalize(lights[0].dir), lights[0].power);
-    Vec lv = lights[0].dir;
-    Vec llv = mat_vec_multiply(lv, mat);
-    llm.values[0][0] = llv.x.v;
-    llm.values[0][1] = llv.y.v;
-    llm.values[0][2] = llv.z.v;
 
-    //llm = mat_multiply(llm, model);
-    // TODO: transform by model
-    gte_loadLightMatrix(&llm);
+    Mat lm = {
+        .v = { lights[0].dir, lights[1].dir },
+    };
+
+    // this is functionally the same as this:
+    // Mat llm = mat_transpose(mat_mul(mat, mat_transpose(lm)));
+    // because (AB^)^ == BA^
+    Mat llm = mat_mul(lm, mat_transpose(mat));
+    gte_loadLightMatrix(&llm.gte);
 }
 
 
@@ -157,7 +157,7 @@ void draw_model(PrimBuf *pb, Model *m, fx angle_y, Vec pos)//Mat mat, Mat rmat)
         },
 
         {
-            .dir = { FX(-ONE), FX(-ONE), 0 },
+            .dir = { FX(ONE), FX(-ONE), 0 },
             .power = 2.0*ONE,
         },
     };
