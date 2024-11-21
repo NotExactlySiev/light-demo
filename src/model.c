@@ -46,12 +46,9 @@ void *model_new_ply(Model *m, void *data)
     const char *face_ptr = strstr(s, face_tag) + sizeof(face_tag) - 1;
     void *data_ptr = strstr(s, data_tag) + sizeof(data_tag) - 1;
 
-
     m->nverts = atoi(vert_ptr);
     m->nfaces = atoi(face_ptr);
-    printf("%d\n", m->nverts);
-    printf("%d\n", m->nfaces);
-
+    printf("V %d\tF %d\n", m->nverts, m->nfaces);
     return data_ptr;
 }
 
@@ -63,7 +60,6 @@ int model_read_data(Model *m, void *data)
     for (int i = 0; i < m->nverts; i++) {
         m->verts[i] = vec_scale(vecf_ftoq(fverts[i].pos), FX(ONE/14)); // BAD
         m->normals[i] = vecf_ftoq(fverts[i].normal);
-        vec_print(m->verts[i]);
     }
 
     PlyFace *plyfaces = (PlyFace *) &fverts[m->nverts];
