@@ -30,7 +30,7 @@ all: build/$(NAME).exe
 #	mkdir -p $(BUILD)
 .PHONY: all
 
-SRCS	:= src/main.c src/model.c src/gpu.c src/kernel.s src/math.c src/math.s
+SRCS	:= src/main.c src/light.c src/model.c src/gpu.c src/kernel.s src/math.c src/math.s
 BINS	:= $(BUILD)/ball.elf $(BUILD)/cube.elf $(BUILD)/monke.elf
 build/$(NAME).elf: $(SRCS) $(BINS)
 	$(CC) $(INCDIRS) $(CCFLAGS) $(LIBDIRS) $(LDFLAGS) -o $@ $^ $(LIBS)

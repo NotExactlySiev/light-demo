@@ -4,6 +4,7 @@
 //#include "math.h"
 #include "gpu.h"
 #include "model.h"
+#include "light.h"
 
 #define SCREEN_W 256
 #define SCREEN_H 240
@@ -99,59 +100,6 @@ void normal_to_color(uint32_t *out, Vec *n)
     out[1] = 0xFFFFFF & gte_getDataReg(GTE_RGB1);
     out[2] = 0xFFFFFF & gte_getDataReg(GTE_RGB2);
 }
-
-typedef enum {
-    LIGHT_NONE,
-    LIGHT_SUN,
-    LIGHT_POINT,
-} LightKind;
-
-typedef struct {
-    Vec vec;  // direction or position
-    Vec color;
-    fx power;
-    LightKind kind;
-} Light;
-
-// calculate light vectors for object
-void calculate_lights(Vec *out, Light *lights, int n, Vec pos)
-{
-    //Vec lv[3] = {0};
-    for (int i = 0; i < n; i++) {
-        Light *l = &lights[i];
-        if (l->kind == LIGHT_POINT) {
-            // mag2 should probably return int32
-            // this should be done at the object routine (it receives the lights that need updating for it)
-            // 32-bit calculation
-            // TODO: use proper fx32 types
-            Vec d = vec_sub(l->vec, pos);
-            int32_t factor = (l->power.v * ONE) / ((d.x.v * d.x.v + d.y.v * d.y.v + d.z.v * d.z.v) / ONE);
-            out[i] = vec_scale(d, FX(factor));
-        } else if (l->kind == LIGHT_SUN) {
-            // TODO: normalize and use power
-            out[i] = l->vec;
-            //lv[i] = vec_scale(vec_normalize_fake(lights[0].dir), lights[0].power);
-        } else {
-            out[i] = (Vec) {0};
-        }
-    }
-}
-// model matrix. should NOT scale
-void update_llm(Vec *lights, Mat mat)
-{
-    Mat lm = {
-        .v = { lights[0], lights[1], lights[2] }
-    };
-
-    // only use the rotation (shouldn't scale either)
-    mat.t = (Vec) {0};
-    // this is functionally the same as this:
-    // Mat llm = mat_transpose(mat_mul(mat, mat_transpose(lm)));
-    // because (AB^)^ == BA^
-    Mat llm = mat_mul(lm, mat_transpose(mat));
-    gte_loadLightMatrix(&llm.gte);
-}
-
 
 void draw_model(PrimBuf *pb, Model *m, fx angle_y, Vec pos, Light *lights)
 {
