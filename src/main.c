@@ -116,10 +116,23 @@ void update_llm(Light *lights, int n, Mat mat, PrimBuf *pb)
     }
     model.t = vec_zero();
 */
-    //Vec lv = vec_scale(vec3_normalize(lights[0].dir), lights[0].power);
+    //Vec lv = vec_scale(vec_normalize_fake(lights[0].dir), lights[0].power);
+    //Vec lv = vec_normalize_fake(lights[0].dir);
+    // mag2 should probably return int32
+    //fx factor = fx_div(lights[0].power, vec_mag2(lights[0].dir));
+    Vec d = lights[0].dir;
+    // this should be done at the object routine (it receives the lights that need updating for it)
+    // 32-bit calculation
+    int32_t factor = (lights[0].power.v * ONE) / ((d.x.v * d.x.v + d.y.v * d.y.v + d.z.v * d.z.v) / ONE);
 
+
+/*
+    printf("factor is: %X\n", factor);
+    fx_print(FX(factor));
+    printf("\n");
+*/
     Mat lm = {
-        .v = { lights[0].dir, lights[1].dir },
+        .v = { vec_scale(d, FX(factor)) },
     };
 
     // this is functionally the same as this:
@@ -136,8 +149,8 @@ void draw_model(PrimBuf *pb, Model *m, fx angle_y, Vec pos)//Mat mat, Mat rmat)
     //draw_vector(pb, (Vec3) { ONE/16, 0, 0 }, (Vec3) { ONE/32, 0, 0 });
     // wait, if we're updating the light matrix per model anyway...
     gte_loadLightColorMatrix(&(GTEMatrix){
-        {{	0,	800,	0 },
-         {	700,	0,	0 },
+        {{	ONE,	800,	0 },
+         {	ONE,	0,	0 },
          {	0,	0,	0 }}
     //          ^       ^       ^
     //        Light1  Light2  Light3
@@ -152,18 +165,27 @@ void draw_model(PrimBuf *pb, Model *m, fx angle_y, Vec pos)//Mat mat, Mat rmat)
     gte_setControlReg(GTE_GBK, 0.1*ONE);
     gte_setControlReg(GTE_BBK, 0.2*ONE);
 
+    // point light position
+
     Light l[2] = {
         {
             .dir = { FX(-ONE), FX(-ONE), 0 },
-            .power = 2.0*ONE,
+            .power = FX(400),
         },
 
         {
-            .dir = { FX(ONE), FX(-ONE), 0 },
-            .power = 2.0*ONE,
+            //.dir = { FX(ONE), FX(-ONE), 0 },
+            .power = FX(ONE/8),
         },
     };
-    update_llm(&l, 2, rmat, pb);
+
+    static fx t = {0};
+    t = fx_add(t, FX(20));
+    fx y = fx_mul(fx_sin(t), FX(ONE/2));
+    Vec point = { FX(0), y, FX(0) }; 
+    l[0].dir = vec_sub(point, pos);
+
+    update_llm(&l, 1, rmat, pb);
     Mat mvp = mat_mul(projection, mat);
 
     Vec proj[m->nverts];
