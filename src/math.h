@@ -20,6 +20,9 @@ typedef union {
     //GTEVector16 gte; 
 } Vec;
 
+// NOTE: Vec not aligned to (4) can't be uploaded using lwc. also the 4th element won't be 0.
+// is it faster to convert to GTEVector16 and lwc, or just mtc the one I already have?
+
 typedef struct {
     int x, y, z;
 } Veci;
@@ -28,7 +31,6 @@ typedef struct {
     float x, y, z;
 } Vecf;
 
-// TODO: transform
 // has the correct bit representation for GTE. can type pun to GTEMatrix
 typedef union {
     struct {
@@ -38,7 +40,7 @@ typedef union {
     };
     GTEMatrix gte;
     Vec v[3];
-} __attribute__ ((packed)) Mat;
+} Mat;
 
 
 float qtof(int);

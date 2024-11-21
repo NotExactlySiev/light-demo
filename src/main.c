@@ -221,7 +221,8 @@ int _start()
 
     Model *cube = load_model(_binary_bin_cube_ply_start);
     Model *ball = load_model(_binary_bin_ball_ply_start);
-   
+
+    // orthographic for now. only scale to screen
     projection = mat_mul(
         mat_scale(FX(ONE/10), FX(ONE/10), FX(ONE)),
         mat_rotate_x(FX(ONE/12))
