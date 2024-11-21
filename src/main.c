@@ -27,7 +27,7 @@ Mat projection;
 
 void draw_line(PrimBuf *pb, Veci a, Veci b, uint32_t color)
 {
-    uint32_t *prim = next_prim(pb, 3, 1);
+    uint32_t *prim = next_prim(pb, 3, 63);
     prim[0] = color | gp0_line(false, false);
     prim[1] = gp0_xy(a.x, a.y);
     prim[2] = gp0_xy(b.x, b.y);
@@ -69,6 +69,7 @@ void draw_triangle(PrimBuf *pb, Veci v0, Veci v1, Veci v2, uint32_t col0, uint32
     if (v0.z > z) z = v0.z;
     if (v1.z > z) z = v1.z;
     if (v2.z > z) z = v2.z;
+    z = (v0.z + v1.z + v2.z + z)/4;
     // TODO: don't harcode this transform
     z = (z + 2048) / 64;
     uint32_t *prim = next_prim(pb, 6, z);
