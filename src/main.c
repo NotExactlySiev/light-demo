@@ -102,18 +102,13 @@ void normal_to_color(uint32_t *out, Vec *n)
 
 void draw_object(PrimBuf *pb, Object *obj, Light *lights)
 {
-    Vec pos = obj->pos;
-    Model *m = obj->model;
-    fx angle_y = obj->angle_y;
-    Mat mat = mat_rotate_y(angle_y);
-    mat.t = pos;
-
-    // calculate the light matrix and the local light matrix 
-    Vec lv[3] = {0};
+    Mat mat = mat_rotate_y(obj->angle_y);
+    mat.t = obj->pos;
 
     update_llm(lights, obj);
-
     Mat mvp = mat_mul(projection, mat);
+
+    Model *m = obj->model;
     Vec proj[m->nverts];
     transform_vecs(proj, m->verts, m->nverts, mvp);
 
@@ -181,67 +176,68 @@ int _start()
                  mat_mul(mat_rotate_x(FX(ONE/12)),
                          mat_rotate_y(FX(ONE/16))));
 
-    Material material = {
-        .diffuse = { FX(ONE/2), FX(ONE/2), FX(ONE/2) },
+    Material material1 = {
+        .ambient = { FX(ONE), FX(ONE), FX(ONE) },
+        .diffuse = { FX(ONE), FX(ONE/2), FX(ONE/2) },
+    };
+
+    Material material2 = {
+        .ambient = { FX(ONE), FX(ONE), FX(ONE) },
+        .diffuse = { FX(ONE), FX(ONE), FX(ONE) },
     };
 
     Object cube = {
         .pos = { FX(800), FX(0), FX(200) },
         .model = cube_model,
-        .material = &material,
+        .material = &material1,
     };
-    Object ball = {
-        .pos = { FX(-100), FX(0), FX(550) },
+    Object ball1 = {
+        .pos = { FX(-650), FX(0), FX(200) },
         .model = ball_model,
-        .material = &material,
+        .material = &material1,
+    };
+    Object ball2 = {
+        .pos = { FX(650), FX(0), FX(400) },
+        .model = ball_model,
+        .material = &material2,
     };
     Object monke = {
-        .pos = { FX(-800), FX(0), FX(-300) },
+        .pos = { FX(0), FX(0), FX(-700) },
         .model = monke_model,
-        .material = &material,
+        .material = &material2,
     };
 
-    fx t = {0};
+    // TODO: put this stuff in a scene struct
+    Light lights[3] = {
+        {
+            .kind = LIGHT_POINT,
+            .vec = { FX(0), FX(0), FX(0) },
+            .ambient = { FX(100), FX(0), FX(0) },
+            .diffuse = { FX(1000), FX(900), FX(900) },
+            .k1 = fx32_div(FX32(ONE), FX32(600)),
+        },
+        { .kind = LIGHT_NONE },
+        { .kind = LIGHT_NONE },
+    };
+
+    fx t = FX(0);
     fx angle = FX(0);
     PrimBuf *pb = gpu_init();
     for (;;) {
         printf("Frame %d\n", frame);
 
-        fx y = fx_mul(fx_sin(t), FX(ONE/3));
-        Light lights[3] = {
-            {
-                .kind = LIGHT_POINT,
-                .vec = { FX(0), y, FX(0) },
-                .diffuse = { FX(1600), FX(1600), FX(1000) },
-                .k1 = fx32_div(FX32(ONE), FX32(600)),
-            },
-            {
-                .kind = LIGHT_NONE, 
-                .vec = { FX(ONE), FX(-ONE), FX(0) },
-            },
-            {
-                .kind = LIGHT_NONE,
-            },
-        };
+        lights[0].vec.y = fx_mul(fx_sin(t), FX(ONE/3));
         cube.angle_y = angle;
         monke.angle_y = fx_add(fx_mul(angle, FX(ONE/3)), FX(-ONE/8));
 
-        draw_object(pb, &cube, lights);
-        draw_object(pb, &ball, lights);
+        //draw_object(pb, &cube, lights);
+        draw_object(pb, &ball1, lights);
+        draw_object(pb, &ball2, lights);
         draw_object(pb, &monke, lights);
-        /*
-        Vec pos;
-        pos = (Vec) 
-        draw_model(pb, cube, angle, pos, lights);
-
-        pos = (Vec) ;
-        draw_model(pb, ball, FX(0), pos, lights);
-
-        pos = (Vec)        draw_model(pb, monke, , pos, lights);
-*/
         draw_axes(pb);
-        pb = swap_buffer();
 
+        pb = swap_buffer();
+        
         angle = fx_add(angle, FX(21));
         t = fx_add(t, FX(30));
     }
