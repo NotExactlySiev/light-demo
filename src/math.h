@@ -51,6 +51,7 @@ float qtof(int);
 int ftoq(float);
 
 fx FX(int16_t);
+fx32 FX32(int32_t);
 fx ftofx(float v);
 float fxtof(fx v);
 fx itofx(int i);
@@ -83,6 +84,9 @@ void transform_vecs(Vec *out, Vec *in, unsigned int n, Mat m);
 
 fx fx_from32(fx32);
 fx32 fx_to32(fx);
+fx32 fx32_add(fx32, fx32);
+fx32 fx32_sub(fx32, fx32);
+fx32 fx32_mul(fx32, fx32);
 fx32 fx32_div(fx32, fx32);
 Vec32 vec_to32(Vec);
 fx32 vec32_dot(Vec32, Vec32);

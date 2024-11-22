@@ -98,8 +98,18 @@ void normal_to_color(uint32_t *out, Vec *n)
     out[2] = 0xFFFFFF & gte_getDataReg(GTE_RGB2);
 }
 
-void draw_model(PrimBuf *pb, Model *m, fx angle_y, Vec pos, Light *lights)
+typedef struct {
+    Vec pos;
+    fx angle_y;
+    Model *model;
+    Material *material;
+} Object;
+
+void draw_object(PrimBuf *pb, Object *obj, Light *lights)
 {
+    Vec pos = obj->pos;
+    Model *m = obj->model;
+    fx angle_y = obj->angle_y;
     // calculate the local matrix (and it's rotational inverse) right here. 
     Mat mat = mat_rotate_y(angle_y);
     mat.t = pos;
@@ -164,14 +174,15 @@ Model *load_model(uint8_t *data, fx scale)
     return m;
 }
 
+
 int _start()
 {
     gte_init();
 
     // TODO: move these to gpu_init
-    Model *cube  = load_model(_binary_bin_cube_ply_start, FX(ONE/16));
-    Model *ball  = load_model(_binary_bin_ball_ply_start, FX(ONE/13));
-    Model *monke = load_model(_binary_bin_monke_ply_start, FX(ONE/12));
+    Model *cube_model  = load_model(_binary_bin_cube_ply_start, FX(ONE/16));
+    Model *ball_model  = load_model(_binary_bin_ball_ply_start, FX(ONE/13));
+    Model *monke_model = load_model(_binary_bin_monke_ply_start, FX(ONE/12));
 
     // we need multiple methods to only update parts of the light state in GTE
     // TODO: read this from the light struct
@@ -193,6 +204,26 @@ int _start()
                  mat_mul(mat_rotate_x(FX(ONE/12)),
                          mat_rotate_y(FX(ONE/16))));
 
+    Material material = {
+        .diffuse = { FX(100), FX(400), FX(50) },
+    };
+
+    Object cube = {
+        .pos = { FX(800), FX(0), FX(200) },
+        .model = cube_model,
+        .material = &material,
+    };
+    Object ball = {
+        .pos = { FX(-100), FX(0), FX(550) },
+        .model = ball_model,
+        .material = &material,
+    };
+    Object monke = {
+        .pos = { FX(-800), FX(0), FX(-300) },
+        .model = monke_model,
+        .material = &material,
+    };
+
     fx t = {0};
     fx angle = FX(0);
     PrimBuf *pb = gpu_init();
@@ -204,10 +235,11 @@ int _start()
             {
                 .kind = LIGHT_POINT,
                 .vec = { FX(0), y, FX(0) },
-                .power = FX(600),
+                //.power = FX(600),
+                .k1 = fx32_div(FX32(ONE), FX32(600)),
             },
             {
-                .kind = LIGHT_SUN, 
+                .kind = LIGHT_NONE, 
                 .vec = { FX(ONE), FX(-ONE), FX(0) },
                 //.power = FX(ONE/8),
             },
@@ -215,17 +247,22 @@ int _start()
                 .kind = LIGHT_NONE,
             },
         };
+        cube.angle_y = angle;
+        monke.angle_y = fx_add(fx_mul(angle, FX(ONE/3)), FX(-ONE/8));
 
+        draw_object(pb, &cube, lights);
+        draw_object(pb, &ball, lights);
+        draw_object(pb, &monke, lights);
+        /*
         Vec pos;
-        pos = (Vec) { FX(800), FX(0), FX(200) };
+        pos = (Vec) 
         draw_model(pb, cube, angle, pos, lights);
 
-        pos = (Vec) { FX(-100), FX(0), FX(550) };
+        pos = (Vec) ;
         draw_model(pb, ball, FX(0), pos, lights);
 
-        pos = (Vec) { FX(-800), FX(0), FX(-300) };
-        draw_model(pb, monke, fx_add(fx_mul(angle, FX(ONE/3)), FX(-ONE/8)), pos, lights);
-
+        pos = (Vec)        draw_model(pb, monke, , pos, lights);
+*/
         draw_axes(pb);
         pb = swap_buffer();
 

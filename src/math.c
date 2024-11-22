@@ -17,6 +17,11 @@ fx FX(const int16_t v)
     return (fx) { v };
 }
 
+fx32 FX32(const int32_t v)
+{
+    return (fx32) { v };
+}
+
 fx ftofx(float v)
 {
     return (fx) { ftoq(v) };
@@ -152,10 +157,12 @@ fx vec_mag2(Vec a)
     return vec_dot(a, a);
 }
 
+/*
 Vec vec_normalize_fake(Vec a)
 {
     return vec_scale(a, fx_div(FX(ONE), vec_mag2(a)));
 }
+*/
 
 // TODO: make this a union too?
 GTEVector16 *vec_gte(Vec *v)
