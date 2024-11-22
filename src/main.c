@@ -5,6 +5,7 @@
 #include "gpu.h"
 #include "model.h"
 #include "light.h"
+#include "object.h"
 
 #define SCREEN_W 256
 #define SCREEN_H 240
@@ -98,12 +99,6 @@ void normal_to_color(uint32_t *out, Vec *n)
     out[2] = 0xFFFFFF & gte_getDataReg(GTE_RGB2);
 }
 
-typedef struct {
-    Vec pos;
-    fx angle_y;
-    Model *model;
-    Material *material;
-} Object;
 
 void draw_object(PrimBuf *pb, Object *obj, Light *lights)
 {
@@ -117,7 +112,7 @@ void draw_object(PrimBuf *pb, Object *obj, Light *lights)
 
     // calculate the light matrix and the local light matrix 
     Vec lv[3] = {0};
-    calculate_lights(lv, lights, 3, pos);
+    calculate_lights(lv, lights, 3, obj);
     update_llm(lv, rmat);
 
     Mat mvp = mat_mul(projection, mat);

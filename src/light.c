@@ -1,4 +1,5 @@
 #include "math.h"
+#include "object.h"
 #include "light.h"
 
 static fx get_attenuation(Light l, Vec pos)
@@ -17,18 +18,18 @@ static fx get_attenuation(Light l, Vec pos)
     return fx_from32(att);
 }
 
-static Vec calculate_light_vector(Light l, Vec pos)
+static Vec calculate_light_vector(Light l, Object *obj)
 {
     switch(l.kind) {
     case LIGHT_POINT:
         // this needs full 32-bit precision.
-        Vec d = vec_sub(l.vec, pos);
+        Vec d = vec_sub(l.vec, obj->pos);
         /*
         Vec32 dd = vec_to32(d);
         fx32 factor = fx32_div(fx_to32(l.power), vec32_dot(dd, dd));
         return vec_scale(d, fx_from32(factor));*/
 
-        fx factor = get_attenuation(l, pos); 
+        fx factor = get_attenuation(l, obj->pos); 
         return vec_scale(d, factor);
         
     case LIGHT_SUN:
@@ -43,10 +44,10 @@ static Vec calculate_light_vector(Light l, Vec pos)
 }
 
 // calculate light vectors for object
-void calculate_lights(Vec *out, Light *lights, int n, Vec pos)
+void calculate_lights(Vec *out, Light *lights, int n, Object *obj)
 {
     for (int i = 0; i < n; i++) {
-        out[i] = calculate_light_vector(lights[i], pos);
+        out[i] = calculate_light_vector(lights[i], obj);
     }
 }
 
