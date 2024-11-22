@@ -189,6 +189,46 @@ Veci vec_raw(Vec v)
     return (Veci) { v.x.v, v.y.v, v.z.v };
 }
 
+fx fx_from32(fx32 x)
+{
+    return (fx) { x.v };
+}
+
+fx32 fx_to32(fx x)
+{
+    return (fx32) { x.v };
+}
+
+fx32 fx32_add(fx32 x, fx32 y)
+{
+    return (fx32) { x.v + y.v };
+}
+
+fx32 fx32_mul(fx32 x, fx32 y)
+{
+    return (fx32) { x.v * y.v / ONE };
+}
+
+fx32 fx32_div(fx32 x, fx32 y)
+{
+    return (fx32) { (x.v * ONE) / y.v };
+}
+
+Vec32 vec_to32(Vec v)
+{
+    return (Vec32) { fx_to32(v.x), fx_to32(v.y), fx_to32(v.z) };
+}
+
+fx32 vec32_dot(Vec32 a, Vec32 b)
+{
+    // ((a*b)*c) != (a*b*c) in fixed point. divide at the end loses less precision.
+    /*return fx32_add(fx32_mul(a.x, b.x),
+           fx32_add(fx32_mul(a.y, b.y),
+                    fx32_mul(a.z, b.z)));*/
+    return (fx32) { (a.x.v * b.x.v + a.y.v * b.y.v + a.z.v * b.z.v) / ONE };
+}
+
+
 Mat mat_id(void)
 {
     return (Mat) {{{

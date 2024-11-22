@@ -5,23 +5,23 @@ static Vec calculate_light_vector(Light l, Vec pos)
 {
     switch(l.kind) {
     case LIGHT_POINT:
-        // mag2 should probably return int32
-        // this should be done at the object routine (it receives the lights that need updating for it)
-        // 32-bit calculation
-        // TODO: use proper fx32 types
+        // this needs full 32-bit precision.
         Vec d = vec_sub(l.vec, pos);
-        int32_t factor = (l.power.v * ONE) / ((d.x.v * d.x.v + d.y.v * d.y.v + d.z.v * d.z.v) / ONE);
-        return vec_scale(d, FX(factor));
+        Vec32 dd = vec_to32(d);
+        fx32 factor = fx32_div(fx_to32(l.power), vec32_dot(dd, dd));
+        return vec_scale(d, fx_from32(factor));
         
     case LIGHT_SUN:
         // TODO: normalize and use power
         //lv[i] = vec_scale(vec_normalize_fake(lights[0].dir), lights[0].power);
         return l.vec;
+    
     case LIGHT_NONE:
+    default:
         return (Vec) {0};
     }
 
-    return (Vec) {0};
+    //return (Vec) {0};
 }
 
 // calculate light vectors for object

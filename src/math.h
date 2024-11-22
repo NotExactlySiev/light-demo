@@ -13,12 +13,16 @@ typedef struct {
 } fx;
 
 typedef struct {
-    //struct {
-        fx x, y, z;
-    //};
-    // The size is different... change the header?
-    //GTEVector16 gte; 
+    int32_t v;  // don't directly access
+} fx32;
+
+typedef struct {
+    fx x, y, z;       // not compatible with GTEVector16 (unless not packed?)
 } Vec;
+
+typedef struct {
+    fx32 x, y, z;     // this one is actually compatible with GTEVector32
+} Vec32;
 
 // NOTE: Vec not aligned to (4) can't be uploaded using lwc. also the 4th element won't be 0.
 // is it faster to convert to GTEVector16 and lwc, or just mtc the one I already have?
@@ -76,6 +80,12 @@ Mat mat_rotate_z(fx);
 Mat mat_mul(Mat a, Mat b);
 Vec mat_vec_multiply(Vec, Mat);
 void transform_vecs(Vec *out, Vec *in, unsigned int n, Mat m);
+
+fx fx_from32(fx32);
+fx32 fx_to32(fx);
+fx32 fx32_div(fx32, fx32);
+Vec32 vec_to32(Vec);
+fx32 vec32_dot(Vec32, Vec32);
 
 void mat_print(Mat);
 
