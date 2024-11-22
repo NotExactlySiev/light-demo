@@ -29,7 +29,7 @@ Mat projection;
 void draw_line(PrimBuf *pb, Veci a, Veci b, uint32_t color)
 {
     // TODO: actually sort
-    uint32_t *prim = next_prim(pb, 3, 63);
+    uint32_t *prim = next_prim(pb, 3, 255);
     prim[0] = color | gp0_line(false, false);
     prim[1] = gp0_xy(a.x, a.y);
     prim[2] = gp0_xy(b.x, b.y);
@@ -73,7 +73,7 @@ void draw_triangle(PrimBuf *pb, Veci v0, Veci v1, Veci v2, uint32_t col0, uint32
     if (v2.z > z) z = v2.z;
     z = (v0.z + v1.z + v2.z + z)/4;
     // TODO: don't harcode this transform
-    z = (z + 2048) / 64;
+    z = (z + 2048) / 16;
     uint32_t *prim = next_prim(pb, 6, z);
     *prim++ = (col0 & 0xFFFFFF) | _gp0_polygon(false, false, true, false, false);
     *prim++ = gp0_xy(v0.x, v0.y);
@@ -83,52 +83,57 @@ void draw_triangle(PrimBuf *pb, Veci v0, Veci v1, Veci v2, uint32_t col0, uint32
     *prim++ = gp0_xy(v2.x, v2.y);
 }
 
-void normal_to_color(uint32_t *out, Vec *n)
+void shade_verts(uint32_t *out, Vec *normals, int n)
 {
     // TODO: NO_GTE mode
-    // TODO: do this once per vertex
-    // TODO: have the lights in a light structure. then read into
-    // gte matrix and transpose the colors
-    // doing one light for now
-
-    gte_setV0(n[0].x.v, n[0].y.v, n[0].z.v);
-    gte_setV1(n[1].x.v, n[1].y.v, n[1].z.v);
-    gte_setV2(n[2].x.v, n[2].y.v, n[2].z.v);
-    gte_command(GTE_CMD_NCT | GTE_SF);
-    out[0] = 0xFFFFFF & gte_getDataReg(GTE_RGB0);
-    out[1] = 0xFFFFFF & gte_getDataReg(GTE_RGB1);
-    out[2] = 0xFFFFFF & gte_getDataReg(GTE_RGB2);
+    int i = 0;
+    for (i = 0; i < n % 3; i++) {
+        gte_loadVec(0, normals[i]);
+        gte_command(GTE_CMD_NCS | GTE_SF);
+        gte_storeDataReg(GTE_RGB2, 0, &out[i]);
+    }
+    
+    for (; i < n; i += 3) {
+        gte_loadVec(0, normals[i + 0]);
+        gte_loadVec(1, normals[i + 1]);
+        gte_loadVec(2, normals[i + 2]);
+        gte_command(GTE_CMD_NCT | GTE_SF);
+        gte_storeDataReg(GTE_RGB0, 0, &out[i]);
+        gte_storeDataReg(GTE_RGB1, 4, &out[i]);
+        gte_storeDataReg(GTE_RGB2, 8, &out[i]);
+    }
 }
-
 
 void draw_object(PrimBuf *pb, Object *obj, Light *lights)
 {
     Mat mat = mat_rotate_y(obj->angle_y);
     mat.t = obj->pos;
-
-    update_llm(lights, obj);
+    
     Mat mvp = mat_mul(projection, mat);
-
     Model *m = obj->model;
+
     Vec proj[m->nverts];
+    uint32_t colors[m->nverts];
+
+    // TODO: there might be a way of only shading the vertices that we need
     transform_vecs(proj, m->verts, m->nverts, mvp);
+    update_llm(lights, obj);
+    shade_verts(colors, m->normals, m->nverts);
 
     for (int i = 0; i < m->nfaces; i++) {
         uint16_t *face = (*m->faces)[i];
         Veci v0 = vec_raw(proj[face[0]]);
         Veci v1 = vec_raw(proj[face[1]]);
         Veci v2 = vec_raw(proj[face[2]]);
-        Vec n[3] = {
-            m->normals[face[0]],
-            m->normals[face[1]],
-            m->normals[face[2]],
-        };
-        uint32_t color[3] = { 255, 255, 255 };
-        normal_to_color(color, n);
+        gte_setDataReg(GTE_SXY0, *(uint32_t *) &proj[face[0]]);
+        gte_setDataReg(GTE_SXY1, *(uint32_t *) &proj[face[1]]);
+        gte_setDataReg(GTE_SXY2, *(uint32_t *) &proj[face[2]]);
+        gte_command(GTE_CMD_NCLIP);
+        if ((int32_t) gte_getDataReg(GTE_MAC0) >= 0) continue;
         draw_triangle(pb, v0, v1, v2,
-            color[0],
-            color[1],
-            color[2]
+            colors[face[0]],
+            colors[face[1]],
+            colors[face[2]]
         );
     }
 }
@@ -171,7 +176,7 @@ int _start()
     // TODO: move these to gpu_init
     Model *cube_model  = load_model(_binary_bin_cube_ply_start, FX(ONE/16));
     Model *ball_model  = load_model(_binary_bin_ball_ply_start, FX(ONE/13));
-    Model *monke_model = load_model(_binary_bin_monke_ply_start, FX(ONE/12));
+    //Model *monke_model = load_model(_binary_bin_monke_ply_start, FX(ONE/12));
     Model *weird_model = load_model(_binary_bin_weird_ply_start, FX(ONE/12));
     // orthographic for now. only scale to screen
     projection = mat_mul(mat_scale(FX(ONE/10), FX(ONE/10), FX(ONE)),
@@ -182,15 +187,14 @@ int _start()
     Light lights[3] = {
         {
             .kind = LIGHT_POINT,
-            .vec = { FX(0), FX(-600), FX(0) },
-            .ambient = { FX(400), FX(400), FX(400) },
-            .diffuse = { FX(0), FX(0), FX(0) },
+            .vec = { FX(0), FX(-1000), FX(0) },
+            .ambient = { FX(40), FX(40), FX(40) },
+            .diffuse = { FX(3500), FX(0), FX(0) },
             .k1 = fx32_div(FX32(ONE), FX32(600)),
         },
         { .kind = LIGHT_NONE },
         { .kind = LIGHT_NONE },
     };
-
     Material material1 = {
         .ambient = { FX(ONE), FX(ONE), FX(ONE) },
         .diffuse = { FX(ONE), FX(ONE), FX(ONE) },
@@ -202,7 +206,7 @@ int _start()
     };
 
     Object cube = {
-        .pos = { FX(800), FX(0), FX(200) },
+        .pos = { FX(0), FX(0), FX(0) },
         .model = cube_model,
         .material = &material1,
     };
@@ -211,6 +215,7 @@ int _start()
         .model = ball_model,
         .material = &material1,
     };
+/*
     Object ball2 = {
         .pos = { FX(650), FX(0), FX(400) },
         .model = ball_model,
@@ -221,6 +226,7 @@ int _start()
         .model = monke_model,
         .material = &material2,
     };
+*/
     Object weird = {
         .pos = { FX(0), FX(0), FX(0) },
         .model = weird_model,
@@ -234,10 +240,11 @@ int _start()
         printf("Frame %d\n", frame);
 
         //lights[0].vec.y = fx_mul(fx_sin(t), FX(ONE/3));
-        cube.angle_y = angle;
-        monke.angle_y = fx_add(fx_mul(angle, FX(ONE/3)), FX(-ONE/8));
+        //cube.angle_y = angle;
+        weird.angle_y = fx_add(fx_mul(angle, FX(ONE/3)), FX(-ONE/8));
 
         draw_object(pb, &weird, lights);
+        //draw_object(pb, &ball1, lights);
         draw_axes(pb);
         pb = swap_buffer();
         

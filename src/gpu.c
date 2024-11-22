@@ -5,7 +5,7 @@
 #include "gpu.h"
 
 // layers should be in the header
-#define PRIM_NLAYERS    64
+#define PRIM_NLAYERS    256
 #define PRIM_SIZE       (1 << 16)
 
 struct PrimBuf {

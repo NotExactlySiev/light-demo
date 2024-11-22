@@ -93,5 +93,7 @@ fx32 fx32_div(fx32, fx32);
 Vec32 vec_to32(Vec);
 fx32 vec32_dot(Vec32, Vec32);
 
+void gte_loadVec(int i, Vec v);
+
 void mat_print(Mat);
 

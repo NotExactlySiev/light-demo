@@ -345,6 +345,16 @@ static void gte_load_matrix(Mat m)
     gte_setControlReg(GTE_TRZ, m.t.z.v);
 }
 
+// we need this because Vec is not aligned to 4 bytes
+void gte_loadVec(int i, Vec v)
+{
+    switch (i) {
+    case 0: gte_setV0(v.x.v, v.y.v, v.z.v); break;
+    case 1: gte_setV1(v.x.v, v.y.v, v.z.v); break; 
+    case 2: gte_setV2(v.x.v, v.y.v, v.z.v); break;
+    }
+}
+
 void transform_vecs(Vec *out, Vec *in, unsigned int n, Mat m)
 {
 #ifdef NO_GTE
@@ -355,7 +365,8 @@ void transform_vecs(Vec *out, Vec *in, unsigned int n, Mat m)
     gte_load_matrix(m);
     for (int i = 0; i < n; i++) {
         //gte_loadV0(vec_gte(&in[i]));
-        gte_setV0(in[i].x.v, in[i].y.v, in[i].z.v);
+        //gte_setV0(in[i].x.v, in[i].y.v, in[i].z.v);
+        gte_loadVec(0, in[i]);
         gte_command(GTE_CMD_MVMVA | GTE_SF | GTE_MX_RT | GTE_V_V0 | GTE_CV_TR);
         // dunno if there's a better way to do this
         //gte_storeDataReg(GTE_IR1, 0, &out[i].gte);
