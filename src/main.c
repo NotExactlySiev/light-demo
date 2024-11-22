@@ -203,7 +203,7 @@ int _start()
         { .kind = LIGHT_NONE },
     };
     Material material1 = {
-        .ambient = { FX(ONE), FX(ONE), FX(ONE) },
+        .ambient = { FX(ONE/14), FX(ONE/14), FX(ONE/14) },
         .diffuse = { FX(ONE), FX(ONE), FX(ONE) },
     };
 
@@ -215,7 +215,7 @@ int _start()
     // TODO: lamp object. have a way of automatically linking this to the light
     // and have the emissive thing be shared by its light object
     Material lamp_material = {
-        .emissive = { FX(3000), FX(3000), FX(2800) },
+        .emissive = { FX(3500), FX(3500), FX(3300) },
     };
 
     Object cube = {
@@ -231,14 +231,14 @@ int _start()
     };
 
     Object ball1 = {
-        .pos = { FX(-650), FX(0), FX(200) },
+        .pos = { FX(700), FX(0), FX(500) },
         .model = ball_model,
         .material = &material1,
     };
 
 
     Object weird = {
-        .pos = { FX(0), FX(0), FX(0) },
+        .pos = { FX(-600), FX(0), FX(0) },
         .model = weird_model,
         .material = &material1,
     };
@@ -262,7 +262,8 @@ int _start()
         Light no_lights[3] = { [1] = lights[1], [2] = lights[2] };
         draw_object(pb, &lamp, no_lights);
         draw_object(pb, &ball1, lights);
-        draw_object(pb, &cube, lights);
+        //draw_object(pb, &cube, lights);
+        draw_object(pb, &weird, lights);
         draw_axes(pb);
         pb = swap_buffer();
         
