@@ -1,16 +1,13 @@
 #include <registers.h>
 #include <cop0.h>
 #include <gpucmd.h>
-//#include "math.h"
+#include "kernel.h"
 #include "gpu.h"
 #include "model.h"
 #include "light.h"
 
 #define SCREEN_W 256
 #define SCREEN_H 240
-
-// TODO: what do I do with this?
-void printf(const char *, ...);
 
 #define EMBED_BIN(s) \
     extern uint8_t _binary_bin_##s##_start[]; \
@@ -172,16 +169,6 @@ int _start()
     gte_init();
 
     // TODO: move these to gpu_init
-    GPU_GP1 = gp1_resetGPU();
-    GPU_GP1 = gp1_dmaRequestMode(GP1_DREQ_GP0_WRITE);
-    GPU_GP1 = gp1_dispBlank(false);
-    GPU_GP1 = gp1_fbMode(GP1_HRES_256, GP1_VRES_256, GP1_MODE_NTSC, false, GP1_COLOR_16BPP);
-    GPU_GP0 = gp0_fbMask(false, false);
-    GPU_GP0 = gp0_fbOffset1(0, 0);
-    GPU_GP0 = gp0_fbOffset2(1023, 511);
-    GPU_GP0 = gp0_fbOrigin(SCREEN_W / 2, SCREEN_H / 2);
-    gpu_sync();
-
     Model *cube  = load_model(_binary_bin_cube_ply_start, FX(ONE/16));
     Model *ball  = load_model(_binary_bin_ball_ply_start, FX(ONE/13));
     Model *monke = load_model(_binary_bin_monke_ply_start, FX(ONE/12));
@@ -197,9 +184,9 @@ int _start()
     });
 
     // I think this needs a per model factor and a per light factor
-    gte_setControlReg(GTE_RBK, 0.1*ONE);
-    gte_setControlReg(GTE_GBK, 0.1*ONE);
-    gte_setControlReg(GTE_BBK, 0.2*ONE);
+    gte_setControlReg(GTE_RBK, 0.05*ONE);
+    gte_setControlReg(GTE_GBK, 0.05*ONE);
+    gte_setControlReg(GTE_BBK, 0.1*ONE);
 
     // orthographic for now. only scale to screen
     projection = mat_mul(mat_scale(FX(ONE/10), FX(ONE/10), FX(ONE)),
@@ -221,7 +208,7 @@ int _start()
             },
             {
                 .kind = LIGHT_SUN, 
-                .vec = { FX(ONE), FX(-ONE), 0 },
+                .vec = { FX(ONE), FX(-ONE), FX(0) },
                 //.power = FX(ONE/8),
             },
             {

@@ -12,10 +12,10 @@ typedef struct {
     int16_t v;  // don't directly access
 } fx;
 
-typedef union {
-    struct {
+typedef struct {
+    //struct {
         fx x, y, z;
-    };
+    //};
     // The size is different... change the header?
     //GTEVector16 gte; 
 } Vec;

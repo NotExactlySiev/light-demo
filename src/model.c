@@ -1,14 +1,8 @@
 #include <string.h>
+#include "kernel.h"
 #include "model.h"
 
-//int ftoq(float);
-
-/*
-typedef struct {
-    float x,y,z;
-} Vecf;
-*/
-
+// TODO: move
 Vec vecf_ftoq(Vecf v)
 {
     return (Vec) {
@@ -18,22 +12,22 @@ Vec vecf_ftoq(Vecf v)
     };
 }
 
-typedef struct {
+typedef struct [[gnu::packed]] {
     Vecf pos;
     Vecf normal;
-} __attribute__((packed)) PlyVert;
+} PlyVert;
 
-typedef struct {
+typedef struct [[gnu::packed]] {
     uint8_t count;
     uint32_t index[];
-} __attribute__((packed)) PlyFace;
+} PlyFace;
 
 // parses header. returns pointer to right after the header
 void *model_new_ply(Model *m, void *data)
 {
     char *s = data;
     if (memcmp(s, "ply\n", 4) != 0)
-        return -1;
+        return NULL;
 
     *m = (Model) {0};
 
@@ -52,7 +46,6 @@ void *model_new_ply(Model *m, void *data)
     return data_ptr;
 }
 
-// TODO: we should be able to scale the model here (scale factor parameter)
 // give it the pointer returned from the one above
 int model_read_data(Model *m, void *data, fx scale)
 {
@@ -62,10 +55,9 @@ int model_read_data(Model *m, void *data, fx scale)
         m->normals[i] = vecf_ftoq(fverts[i].normal);
     }
 
-    PlyFace *plyfaces = (PlyFace *) &fverts[m->nverts];
-    uint8_t *p = &plyfaces[0];
+    uint8_t *p = (uint8_t *) &fverts[m->nverts];
     for (int i = 0; i < m->nfaces; i++) {
-        PlyFace *face = p;
+        PlyFace *face = (PlyFace *) p;
         if (face->count != 3) {
             printf("Non tri polygon! %d\n", face->count);
             return -1;

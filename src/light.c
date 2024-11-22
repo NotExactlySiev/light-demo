@@ -20,6 +20,8 @@ static Vec calculate_light_vector(Light l, Vec pos)
     case LIGHT_NONE:
         return (Vec) {0};
     }
+
+    return (Vec) {0};
 }
 
 // calculate light vectors for object

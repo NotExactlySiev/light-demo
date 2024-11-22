@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <registers.h>
 #include <gpucmd.h>
+#include "kernel.h"
 #include "gpu.h"
 
 // layers should be in the header
@@ -18,21 +19,6 @@ static PrimBuf primbufs[2];
 static int curr = 0;
 static int vsync_event = 0;
 
-// TODO: move kernel stuff to another header
-#define RCntCNT3    0xF2000003
-#define EvSpINT     0x0002
-#define EvMdINTR    0x1000
-
-int  EnterCriticalSection(void);
-void ExitCriticalSection(void);
-int OpenEvent(unsigned int,int,int,int (*func)());
-int CloseEvent(int);
-int WaitEvent(int);
-int TestEvent(int);
-int EnableEvent(int);
-int DisableEvent(int);
-int enable_timer_irq(uint);
-int disable_timer_irq(uint);
 
 int enable_vblank_event(void* handler)
 {
@@ -77,12 +63,21 @@ static void send_prims(uint32_t *data)
 // TODO: bring all the initialization stuff here from main
 PrimBuf *gpu_init(void)
 {
+    GPU_GP1 = gp1_resetGPU();
+    GPU_GP1 = gp1_dmaRequestMode(GP1_DREQ_GP0_WRITE);
+    GPU_GP1 = gp1_dispBlank(false);
+    GPU_GP1 = gp1_fbMode(GP1_HRES_256, GP1_VRES_256, GP1_MODE_NTSC, false, GP1_COLOR_16BPP);
+    GPU_GP0 = gp0_fbMask(false, false);
+    GPU_GP0 = gp0_fbOffset1(0, 0);
+    GPU_GP0 = gp0_fbOffset2(1023, 511);
+    GPU_GP0 = gp0_fbOrigin(SCREEN_W / 2, SCREEN_H / 2);
+    gpu_sync();
+
     DMA_DPCR |= DMA_DPCR_ENABLE << (DMA_GPU * 4);
     curr = 0;
     clear_buffer(&primbufs[curr]);
     vsync_event = enable_vblank_event(vsync_handler);
     frame = 0;
-
     return &primbufs[curr];
 }
 
@@ -123,15 +118,15 @@ PrimBuf *swap_buffer(void)
 	prim[3] = gp0_fbOrigin(bufferX + SCREEN_W / 2, bufferY + SCREEN_H / 2);
 
     gpu_sync();    
-    while (last_rendered == frame)
-        __asm__ volatile("");
+    while (last_rendered == frame);
     last_rendered = frame;
+
     // add the block fill last, right before dma, so it's drawn first
     prim = next_prim(pb, 3, PRIM_NLAYERS-1);
     prim[0] = gp0_rgb(0, 0, 0) | gp0_vramFill();
     prim[1] = gp0_xy((curr) * SCREEN_W, 0);
     prim[2] = gp0_xy(SCREEN_W, SCREEN_H);
-    send_prims(pb->layers[PRIM_NLAYERS-1]);
+    send_prims(&pb->layers[PRIM_NLAYERS-1]);
     curr = 1 - curr;
     pb = &primbufs[curr];
     GPU_GP1 = gp1_fbOffset(curr * SCREEN_W, 0); 
