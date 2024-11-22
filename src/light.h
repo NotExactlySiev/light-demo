@@ -32,5 +32,4 @@ struct Material {
     //per vertex?
 };
 
-void calculate_lights(Vec *out, Light *lights, int n, Object *obj);
-void update_llm(Vec *lights, Mat mat);
+void update_llm(Light *lights, Object *obj);

@@ -67,6 +67,7 @@ fx fx_cos(fx v);
 Vec vec_add(Vec a, Vec b);
 Vec vec_sub(Vec a, Vec b);
 Vec vec_scale(Vec v, fx s);
+Vec vec_mul(Vec a, Vec b);
 fx vec_dot(Vec a, Vec b);
 fx vec_mag2(Vec a);
 Vec vec_normalize_fake(Vec a);

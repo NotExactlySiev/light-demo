@@ -105,15 +105,13 @@ void draw_object(PrimBuf *pb, Object *obj, Light *lights)
     Vec pos = obj->pos;
     Model *m = obj->model;
     fx angle_y = obj->angle_y;
-    // calculate the local matrix (and it's rotational inverse) right here. 
     Mat mat = mat_rotate_y(angle_y);
     mat.t = pos;
-    Mat rmat = mat_rotate_y(fx_neg(angle_y));
 
     // calculate the light matrix and the local light matrix 
     Vec lv[3] = {0};
-    calculate_lights(lv, lights, 3, obj);
-    update_llm(lv, rmat);
+
+    update_llm(lights, obj);
 
     Mat mvp = mat_mul(projection, mat);
     Vec proj[m->nverts];
@@ -178,29 +176,13 @@ int _start()
     Model *cube_model  = load_model(_binary_bin_cube_ply_start, FX(ONE/16));
     Model *ball_model  = load_model(_binary_bin_ball_ply_start, FX(ONE/13));
     Model *monke_model = load_model(_binary_bin_monke_ply_start, FX(ONE/12));
-
-    // we need multiple methods to only update parts of the light state in GTE
-    // TODO: read this from the light struct
-    gte_loadLightColorMatrix(&(GTEMatrix){
-        {{	1600,	0,	0 },
-         {	1600,	600,	0 },
-         {	1600,	0,	0 }}
-    //          ^       ^       ^
-    //        Light1  Light2  Light3
-    });
-
-    // I think this needs a per model factor and a per light factor
-    gte_setControlReg(GTE_RBK, 0.05*ONE);
-    gte_setControlReg(GTE_GBK, 0.05*ONE);
-    gte_setControlReg(GTE_BBK, 0.1*ONE);
-
     // orthographic for now. only scale to screen
     projection = mat_mul(mat_scale(FX(ONE/10), FX(ONE/10), FX(ONE)),
                  mat_mul(mat_rotate_x(FX(ONE/12)),
                          mat_rotate_y(FX(ONE/16))));
 
     Material material = {
-        .diffuse = { FX(100), FX(400), FX(50) },
+        .diffuse = { FX(ONE/2), FX(ONE/2), FX(ONE/2) },
     };
 
     Object cube = {
@@ -230,13 +212,12 @@ int _start()
             {
                 .kind = LIGHT_POINT,
                 .vec = { FX(0), y, FX(0) },
-                //.power = FX(600),
+                .diffuse = { FX(1600), FX(1600), FX(1000) },
                 .k1 = fx32_div(FX32(ONE), FX32(600)),
             },
             {
                 .kind = LIGHT_NONE, 
                 .vec = { FX(ONE), FX(-ONE), FX(0) },
-                //.power = FX(ONE/8),
             },
             {
                 .kind = LIGHT_NONE,

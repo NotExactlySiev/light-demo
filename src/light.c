@@ -18,8 +18,17 @@ static fx get_attenuation(Light l, Vec pos)
     return fx_from32(att);
 }
 
-static Vec calculate_light_vector(Light l, Object *obj)
+// light values calculated for a single point (object or vertex)
+typedef struct {
+    Vec lv;
+    Vec lc;
+    Vec bk;
+} LightVectors;
+
+static LightVectors calculate_light_vector(Light l, Object *obj)
 {
+    LightVectors vecs = {0};
+
     switch(l.kind) {
     case LIGHT_POINT:
         // this needs full 32-bit precision.
@@ -29,41 +38,57 @@ static Vec calculate_light_vector(Light l, Object *obj)
         fx32 factor = fx32_div(fx_to32(l.power), vec32_dot(dd, dd));
         return vec_scale(d, fx_from32(factor));*/
 
-        fx factor = get_attenuation(l, obj->pos); 
-        return vec_scale(d, factor);
+        fx factor = get_attenuation(l, obj->pos);
+        Vec ambient = vec_scale(vec_mul(obj->material->ambient, l.ambient), factor);
+        Vec diffuse = vec_mul(obj->material->diffuse, l.diffuse);
+
+        return (LightVectors) {
+            .lv = vec_scale(d, factor),
+            .lc = diffuse,
+            .bk = ambient,
+        };
         
     case LIGHT_SUN:
         // TODO: normalize and use power
         //lv[i] = vec_scale(vec_normalize_fake(lights[0].dir), lights[0].power);
-        return l.vec;
+        return (LightVectors) {
+            .lv = l.vec,
+        };
     
     case LIGHT_NONE:
     default:
-        return (Vec) {0};
+        return (LightVectors) {0};
     }
 }
 
-// calculate light vectors for object
-void calculate_lights(Vec *out, Light *lights, int n, Object *obj)
+void update_llm(Light *lights, Object *obj)
 {
-    for (int i = 0; i < n; i++) {
-        out[i] = calculate_light_vector(lights[i], obj);
+    Mat lm = {0};
+    Mat lc = {0};
+    Vec bk = {0};
+
+    for (int i = 0; i < 3; i++) {
+        LightVectors vecs = calculate_light_vector(lights[i], obj);
+        lm.v[i] = vecs.lv;
+        lc.v[i] = vecs.lc;
+        bk = vec_add(bk, vecs.bk);
     }
-}
 
-// model matrix. should NOT scale
-void update_llm(Vec *lights, Mat mat)
-{
-    Mat lm = {
-        .v = { lights[0], lights[1], lights[2] }
-    };
 
-    // only use the rotation (shouldn't scale either)
-    mat.t = (Vec) {0};
-    // this is functionally the same as this:
-    // Mat llm = mat_transpose(mat_mul(mat, mat_transpose(lm)));
+    // local transform matrix. should NOT scale or translate. rotation only
+    Mat rot = mat_rotate_y(fx_neg(obj->angle_y));
+    // the line below is functionally the same as this:
+    // lm = mat_transpose(mat_mul(mat, mat_transpose(lm)));
     // because (AB^)^ == BA^
-    Mat llm = mat_mul(lm, mat_transpose(mat));
-    gte_loadLightMatrix(&llm.gte);
+    lm = mat_mul(lm, mat_transpose(rot));
+
+    // the colors are in columns, not rows
+    lc = mat_transpose(lc);
+
+    gte_setControlReg(GTE_RBK, bk.x.v);
+    gte_setControlReg(GTE_GBK, bk.y.v);
+    gte_setControlReg(GTE_BBK, bk.z.v);
+    gte_loadLightColorMatrix(&lc.gte);
+    gte_loadLightMatrix(&lm.gte);
 }
 

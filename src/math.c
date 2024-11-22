@@ -152,6 +152,16 @@ fx vec_dot(Vec a, Vec b)
                   fx_mul(a.z, b.z)));
 }
 
+// ehh
+Vec vec_mul(Vec a, Vec b)
+{
+    return (Vec) {
+        .x = fx_mul(a.x, b.x),
+        .y = fx_mul(a.y, b.y),
+        .z = fx_mul(a.z, b.z),
+    };
+}
+
 fx vec_mag2(Vec a)
 {
     return vec_dot(a, a);
