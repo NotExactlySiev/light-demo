@@ -27,8 +27,8 @@ struct Light {
 struct Material {
     Vec ambient;
     Vec diffuse;
+    Vec emissive;
     //Vec specular;
-    //Vec emissive;
     //per vertex?
 };
 

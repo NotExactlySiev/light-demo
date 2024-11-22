@@ -45,7 +45,7 @@ static LightVectors calculate_light_vector(Light l, Object *obj)
         return (LightVectors) {
             .lv = vec_scale(d, factor),
             .lc = diffuse,
-            .bk = ambient,
+            .bk = vec_add(obj->material->emissive, ambient),
         };
         
     case LIGHT_SUN:

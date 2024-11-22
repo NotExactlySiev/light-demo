@@ -176,7 +176,8 @@ int _start()
     // TODO: move these to gpu_init
     Model *cube_model  = load_model(_binary_bin_cube_ply_start, FX(ONE/16));
     Model *ball_model  = load_model(_binary_bin_ball_ply_start, FX(ONE/13));
-    //Model *monke_model = load_model(_binary_bin_monke_ply_start, FX(ONE/12));
+    Model *lamp_model  = load_model(_binary_bin_ball_ply_start, FX(ONE/64));
+    Model *monke_model = load_model(_binary_bin_monke_ply_start, FX(ONE/12));
     Model *weird_model = load_model(_binary_bin_weird_ply_start, FX(ONE/12));
     // orthographic for now. only scale to screen
     projection = mat_mul(mat_scale(FX(ONE/10), FX(ONE/10), FX(ONE)),
@@ -187,12 +188,18 @@ int _start()
     Light lights[3] = {
         {
             .kind = LIGHT_POINT,
-            .vec = { FX(0), FX(-1000), FX(0) },
-            .ambient = { FX(40), FX(40), FX(40) },
-            .diffuse = { FX(3500), FX(0), FX(0) },
+            .vec = { FX(0), FX(-1500), FX(0) },
+            .ambient = { FX(200), FX(200), FX(150) },
+            .diffuse = { FX(2150), FX(2100), FX(2000) },
             .k1 = fx32_div(FX32(ONE), FX32(600)),
         },
-        { .kind = LIGHT_NONE },
+        {
+            .kind = LIGHT_POINT,
+            .vec = { FX(0), FX(-1500), FX(0) },
+            .ambient = { FX(40), FX(40), FX(40) },
+            .diffuse = { FX(0), FX(2000), FX(0) },
+            .k1 = fx32_div(FX32(ONE), FX32(600)),
+        },
         { .kind = LIGHT_NONE },
     };
     Material material1 = {
@@ -205,28 +212,31 @@ int _start()
         .diffuse = { FX(ONE), FX(ONE), FX(ONE) },
     };
 
+    // TODO: lamp object. have a way of automatically linking this to the light
+    // and have the emissive thing be shared by its light object
+    Material lamp_material = {
+        .emissive = { FX(3000), FX(3000), FX(2800) },
+    };
+
     Object cube = {
-        .pos = { FX(0), FX(0), FX(0) },
+        .pos = { FX(700), FX(0), FX(0) },
         .model = cube_model,
         .material = &material1,
     };
+
+    Object lamp = {
+        .pos = { FX(0), FX(-1000), FX(0) },
+        .model = lamp_model,
+        .material = &lamp_material,
+    };
+
     Object ball1 = {
         .pos = { FX(-650), FX(0), FX(200) },
         .model = ball_model,
         .material = &material1,
     };
-/*
-    Object ball2 = {
-        .pos = { FX(650), FX(0), FX(400) },
-        .model = ball_model,
-        .material = &material2,
-    };
-    Object monke = {
-        .pos = { FX(0), FX(0), FX(-700) },
-        .model = monke_model,
-        .material = &material2,
-    };
-*/
+
+
     Object weird = {
         .pos = { FX(0), FX(0), FX(0) },
         .model = weird_model,
@@ -239,12 +249,20 @@ int _start()
     for (;;) {
         printf("Frame %d\n", frame);
 
-        //lights[0].vec.y = fx_mul(fx_sin(t), FX(ONE/3));
-        //cube.angle_y = angle;
-        weird.angle_y = fx_add(fx_mul(angle, FX(ONE/3)), FX(-ONE/8));
+        //lights[1].vec.z = fx_mul(fx_sin(angle), FX(ONE/3));
 
-        draw_object(pb, &weird, lights);
-        //draw_object(pb, &ball1, lights);
+        Vec lamp_pos = (Vec) { fx_mul(fx_sin(t), FX(ONE/3)), FX(-800), FX(0) };
+        lights[0].vec = lamp_pos;
+        lamp.pos = lamp_pos;
+        //cube.angle_y = angle;
+        //weird.angle_y = fx_add(fx_mul(angle, FX(ONE/3)), FX(-ONE/8));
+
+        // lamp can't be lit by the light inside itself. because the distance is zero.
+        // so we only light it by the other lights :D
+        Light no_lights[3] = { [1] = lights[1], [2] = lights[2] };
+        draw_object(pb, &lamp, no_lights);
+        draw_object(pb, &ball1, lights);
+        draw_object(pb, &cube, lights);
         draw_axes(pb);
         pb = swap_buffer();
         
