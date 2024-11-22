@@ -6,7 +6,7 @@
 
 // layers should be in the header
 #define PRIM_NLAYERS    64
-#define PRIM_SIZE       (1 << 14)
+#define PRIM_SIZE       (1 << 16)
 
 struct PrimBuf {
     uint32_t data[PRIM_SIZE];

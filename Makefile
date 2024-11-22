@@ -31,7 +31,7 @@ all: build/$(NAME).exe
 .PHONY: all
 
 SRCS	:= src/main.c src/light.c src/model.c src/gpu.c src/kernel.s src/math.c src/math.s
-BINS	:= $(BUILD)/ball.elf $(BUILD)/cube.elf $(BUILD)/monke.elf
+BINS	:= $(BUILD)/ball.elf $(BUILD)/cube.elf $(BUILD)/monke.elf $(BUILD)/weird.elf
 build/$(NAME).elf: $(SRCS) $(BINS)
 	$(CC) $(INCDIRS) $(CCFLAGS) $(LIBDIRS) $(LDFLAGS) -o $@ $^ $(LIBS)
 

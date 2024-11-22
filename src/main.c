@@ -19,6 +19,7 @@
 EMBED_MODEL(ball)
 EMBED_MODEL(cube)
 EMBED_MODEL(monke)
+EMBED_MODEL(weird)
 
 // TODO: models init function with X() macro
 
@@ -171,14 +172,28 @@ int _start()
     Model *cube_model  = load_model(_binary_bin_cube_ply_start, FX(ONE/16));
     Model *ball_model  = load_model(_binary_bin_ball_ply_start, FX(ONE/13));
     Model *monke_model = load_model(_binary_bin_monke_ply_start, FX(ONE/12));
+    Model *weird_model = load_model(_binary_bin_weird_ply_start, FX(ONE/12));
     // orthographic for now. only scale to screen
     projection = mat_mul(mat_scale(FX(ONE/10), FX(ONE/10), FX(ONE)),
                  mat_mul(mat_rotate_x(FX(ONE/12)),
                          mat_rotate_y(FX(ONE/16))));
 
+    // TODO: put this stuff in a scene struct
+    Light lights[3] = {
+        {
+            .kind = LIGHT_POINT,
+            .vec = { FX(0), FX(-600), FX(0) },
+            .ambient = { FX(400), FX(400), FX(400) },
+            .diffuse = { FX(0), FX(0), FX(0) },
+            .k1 = fx32_div(FX32(ONE), FX32(600)),
+        },
+        { .kind = LIGHT_NONE },
+        { .kind = LIGHT_NONE },
+    };
+
     Material material1 = {
         .ambient = { FX(ONE), FX(ONE), FX(ONE) },
-        .diffuse = { FX(ONE), FX(ONE/2), FX(ONE/2) },
+        .diffuse = { FX(ONE), FX(ONE), FX(ONE) },
     };
 
     Material material2 = {
@@ -206,18 +221,10 @@ int _start()
         .model = monke_model,
         .material = &material2,
     };
-
-    // TODO: put this stuff in a scene struct
-    Light lights[3] = {
-        {
-            .kind = LIGHT_POINT,
-            .vec = { FX(0), FX(0), FX(0) },
-            .ambient = { FX(100), FX(0), FX(0) },
-            .diffuse = { FX(1000), FX(900), FX(900) },
-            .k1 = fx32_div(FX32(ONE), FX32(600)),
-        },
-        { .kind = LIGHT_NONE },
-        { .kind = LIGHT_NONE },
+    Object weird = {
+        .pos = { FX(0), FX(0), FX(0) },
+        .model = weird_model,
+        .material = &material1,
     };
 
     fx t = FX(0);
@@ -226,16 +233,12 @@ int _start()
     for (;;) {
         printf("Frame %d\n", frame);
 
-        lights[0].vec.y = fx_mul(fx_sin(t), FX(ONE/3));
+        //lights[0].vec.y = fx_mul(fx_sin(t), FX(ONE/3));
         cube.angle_y = angle;
         monke.angle_y = fx_add(fx_mul(angle, FX(ONE/3)), FX(-ONE/8));
 
-        //draw_object(pb, &cube, lights);
-        draw_object(pb, &ball1, lights);
-        draw_object(pb, &ball2, lights);
-        draw_object(pb, &monke, lights);
+        draw_object(pb, &weird, lights);
         draw_axes(pb);
-
         pb = swap_buffer();
         
         angle = fx_add(angle, FX(21));
