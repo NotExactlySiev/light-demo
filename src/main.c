@@ -173,12 +173,12 @@ int _start()
 {
     gte_init();
 
-    // TODO: move these to gpu_init
     Model *cube_model  = load_model(_binary_bin_cube_ply_start, FX(ONE/16));
     Model *ball_model  = load_model(_binary_bin_ball_ply_start, FX(ONE/13));
     Model *lamp_model  = load_model(_binary_bin_ball_ply_start, FX(ONE/64));
     Model *monke_model = load_model(_binary_bin_monke_ply_start, FX(ONE/12));
     Model *weird_model = load_model(_binary_bin_weird_ply_start, FX(ONE/12));
+
     // orthographic for now. only scale to screen
     projection = mat_mul(mat_scale(FX(ONE/10), FX(ONE/10), FX(ONE)),
                  mat_mul(mat_rotate_x(FX(ONE/12)),
@@ -207,11 +207,6 @@ int _start()
         .diffuse = { FX(ONE), FX(ONE), FX(ONE) },
     };
 
-    Material material2 = {
-        .ambient = { FX(ONE), FX(ONE), FX(ONE) },
-        .diffuse = { FX(ONE), FX(ONE), FX(ONE) },
-    };
-
     // TODO: lamp object. have a way of automatically linking this to the light
     // and have the emissive thing be shared by its light object
     Material lamp_material = {
@@ -236,7 +231,6 @@ int _start()
         .material = &material1,
     };
 
-
     Object weird = {
         .pos = { FX(-600), FX(0), FX(0) },
         .model = weird_model,
@@ -249,21 +243,19 @@ int _start()
     for (;;) {
         printf("Frame %d\n", frame);
 
-        //lights[1].vec.z = fx_mul(fx_sin(angle), FX(ONE/3));
-
         Vec lamp_pos = (Vec) { fx_mul(fx_sin(t), FX(ONE/3)), FX(-800), FX(0) };
         lights[0].vec = lamp_pos;
         lamp.pos = lamp_pos;
-        //cube.angle_y = angle;
-        //weird.angle_y = fx_add(fx_mul(angle, FX(ONE/3)), FX(-ONE/8));
+        weird.angle_y = fx_add(fx_mul(angle, FX(ONE/3)), FX(-ONE/8));
 
         // lamp can't be lit by the light inside itself. because the distance is zero.
         // so we only light it by the other lights :D
         Light no_lights[3] = { [1] = lights[1], [2] = lights[2] };
         draw_object(pb, &lamp, no_lights);
+
         draw_object(pb, &ball1, lights);
-        //draw_object(pb, &cube, lights);
         draw_object(pb, &weird, lights);
+
         draw_axes(pb);
         pb = swap_buffer();
         
